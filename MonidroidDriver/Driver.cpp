@@ -1,5 +1,6 @@
 #include "Driver.h"
 
+using Microsoft::WRL::ComPtr;
 
 static const IndirectMonitorInfo::IndirectMonitorMode SAMPLE_MONITOR_MODES[] = {
     { 1920, 1080, 60 },
@@ -29,7 +30,7 @@ static const IndirectMonitorInfo SAMPLE_MONITOR_INFO = {
 /*
 * ----- Helper functions
 */
-template <typename T> void CoSafeRelease(T** ppT) {
+template <typename T> inline void CoSafeRelease(T** ppT) {
     if (*ppT) {
         (*ppT)->Release();
         *ppT = nullptr;
@@ -251,8 +252,6 @@ NTSTATUS EvtDeviceD0Entry(WDFDEVICE Device, WDF_POWER_DEVICE_STATE PreviousState
     return STATUS_SUCCESS;
 }
 
-#pragma endregion
-
 // Device disabled (exit D0 state)
 NTSTATUS EvtDeviceD0Exit(WDFDEVICE Device, WDF_POWER_DEVICE_STATE TargetState) {
     UNREFERENCED_PARAMETER(Device);
@@ -262,6 +261,9 @@ NTSTATUS EvtDeviceD0Exit(WDFDEVICE Device, WDF_POWER_DEVICE_STATE TargetState) {
 
     return STATUS_SUCCESS;
 }
+
+#pragma endregion
+
 
 /*
 * ---- IddCx Callbacks
@@ -323,38 +325,38 @@ void EvtIddCxDeviceIoControl(WDFDEVICE Device, WDFREQUEST Request,
         information = sizeof(FRAME_MONITOR_INFO);
         break;
     }
-    case IOCTL_IDDCX_INIT_FRAME_SEND:
-    {
-        INIT_SEND_INFO* pSendInfo = (INIT_SEND_INFO*)inBuf;
+    //case IOCTL_IDDCX_INIT_FRAME_SEND:
+    //{
+    //    INIT_SEND_INFO* pSendInfo = (INIT_SEND_INFO*)inBuf;
 
-        DWORD error = pContext->pContext->InitFrameSending(pSendInfo);
-        status = STATUS_SUCCESS;
-        
-        WdfMemoryCopyFromBuffer(outMemory, 0, &error, sizeof(error));
-        information = sizeof(error);
-        break;
-    }
-    case IOCTL_IDDCX_SEND_FRAME:
-    {
-        UINT connectorIndex = *((UINT*)inBuf);
+    //    DWORD error = pContext->pContext->InitFrameSending(pSendInfo);
+    //    status = STATUS_SUCCESS;
+    //    
+    //    WdfMemoryCopyFromBuffer(outMemory, 0, &error, sizeof(error));
+    //    information = sizeof(error);
+    //    break;
+    //}
+    //case IOCTL_IDDCX_SEND_FRAME:
+    //{
+    //    UINT connectorIndex = *((UINT*)inBuf);
 
-        HRESULT hr = pContext->pContext->SendNextFrame(connectorIndex);
-        status = STATUS_SUCCESS;
+    //    HRESULT hr = pContext->pContext->SendNextFrame(connectorIndex);
+    //    status = STATUS_SUCCESS;
 
-        WdfMemoryCopyFromBuffer(outMemory, 0, &hr, sizeof(hr));
-        information = sizeof(hr);
-        break;
-    }
-    case IOCTL_IDDCX_FINALIZE_FRAME_SEND:
-    {
-        UINT connectorIndex = *((UINT*)inBuf);
+    //    WdfMemoryCopyFromBuffer(outMemory, 0, &hr, sizeof(hr));
+    //    information = sizeof(hr);
+    //    break;
+    //}
+    //case IOCTL_IDDCX_FINALIZE_FRAME_SEND:
+    //{
+    //    UINT connectorIndex = *((UINT*)inBuf);
 
-        pContext->pContext->FinalizeFrameSending(connectorIndex);
-        status = STATUS_SUCCESS;
+    //    pContext->pContext->FinalizeFrameSending(connectorIndex);
+    //    status = STATUS_SUCCESS;
 
-        information = 0;
-        break;
-    }
+    //    information = 0;
+    //    break;
+    //}
     default:
         status = STATUS_INVALID_PARAMETER;
         break;
@@ -385,11 +387,9 @@ NTSTATUS EvtIddCxAdapterInitFinished(
 /// <summary>
 /// Called by OS to ask the driver to parse a EDID monitor description
 /// into a list of modes that the monitor supports.
+/// 
 /// This function is called only if monitor had provided an EDID block
 /// </summary>
-/// <param name="pInArgs"></param>
-/// <param name="pOutArgs"></param>
-/// <returns>NTSTATUS value</returns>
 NTSTATUS EvtIddCxParseMonitorDescription(
     const IDARG_IN_PARSEMONITORDESCRIPTION* pInArgs,
     IDARG_OUT_PARSEMONITORDESCRIPTION* pOutArgs
@@ -527,7 +527,7 @@ NTSTATUS AdapterContext::Init() {
 
     // Device strings for telemetry
     adapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"Monidroid Graphics Adapter";
-    adapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"Maxim Dadush";
+    adapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"Maksim Dadush";
     adapterCaps.EndPointDiagnostics.pEndPointModelName = L"Monidroid Virtual Monitor";
 
     // Hardware and firmware versions
@@ -638,8 +638,8 @@ NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
     // get handle to frame
     IDDCX_MONITOR monitorObject = connectedMonitors[pFrameInfo->connectorIndex].monitorObject;
     auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
-    HANDLE hDriverFrame;
-    HRESULT hr = pContext->pContext->GetFrameFromChain(&hDriverFrame);
+    HANDLE hDriverFrame = nullptr;
+    HRESULT hr = pContext->pContext->GetFrameFromChain(hDriverFrame);
     if (FAILED(hr)) {
         return STATUS_INVALID_PARAMETER;
     }
@@ -653,31 +653,25 @@ NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
 /// <summary>
 /// Initialization of frames sending by driver
 /// </summary>
-DWORD AdapterContext::InitFrameSending(INIT_SEND_INFO* pSendInfo) {
-    IDDCX_MONITOR monitorObject = connectedMonitors[pSendInfo->connectorIndex].monitorObject;
-    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
-
-    return pContext->pContext->InitFrameSending(pSendInfo);
-}
-
-/// <summary>
-/// Sending next frame by driver
-/// </summary>
-HRESULT AdapterContext::SendNextFrame(UINT connectorIndex) {
-    IDDCX_MONITOR monitorObject = connectedMonitors[connectorIndex].monitorObject;
-    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
-
-    return pContext->pContext->SendNextFrame();
-}
-
-/// <summary>
-/// Finalization of frames sending by driver
-/// </summary>
-void AdapterContext::FinalizeFrameSending(UINT connectorIndex) {
-    IDDCX_MONITOR monitorObject = connectedMonitors[connectorIndex].monitorObject;
-    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
-    pContext->pContext->FinalizeFrameSending();
-}
+//DWORD AdapterContext::InitFrameSending(INIT_SEND_INFO* pSendInfo) {
+//    IDDCX_MONITOR monitorObject = connectedMonitors[pSendInfo->connectorIndex].monitorObject;
+//    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
+//
+//    return pContext->pContext->InitFrameSending(pSendInfo);
+//}
+//
+//HRESULT AdapterContext::SendNextFrame(UINT connectorIndex) {
+//    IDDCX_MONITOR monitorObject = connectedMonitors[connectorIndex].monitorObject;
+//    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
+//
+//    return pContext->pContext->SendNextFrame();
+//}
+//
+//void AdapterContext::FinalizeFrameSending(UINT connectorIndex) {
+//    IDDCX_MONITOR monitorObject = connectedMonitors[connectorIndex].monitorObject;
+//    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
+//    pContext->pContext->FinalizeFrameSending();
+//}
 
 
 NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
@@ -704,25 +698,8 @@ NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
 #pragma region Monitor functionality
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor) :
-    swapChain(nullptr),
-    pDevice(nullptr),
-    pDeviceContext(nullptr),
-    hProcessingThread(nullptr),
-    hNextFrameAvailable(nullptr),
-    hStopEvent(nullptr)
+    info { .monitorObject = Monitor }
 {
-    adapterLuid = {};
-    info.monitorObject = Monitor;
-
-    // init frames array
-    for (int i = 0; i < MAX_FRAMES_COUNT; i++) {
-        framesChain[i] = nullptr;
-    }
-    currentFrame = -1;
-
-    // init sockets
-    clientSocket = INVALID_SOCKET;
-
     InitializeCriticalSection(&syncRoot);
 }
 
@@ -778,30 +755,46 @@ void MonitorContext::FinalizeProcessor() {
 
     for (int i = 0; i < MAX_FRAMES_COUNT; i++) {
         CoSafeRelease(&framesChain[i]);
-    }
-    currentFrame = -1;
-}
-
-//DXGIProcessor::DXGIProcessor(IDDCX_SWAPCHAIN SwapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable) :
-//    swapChain(SwapChain),
-//    adapterLuid(AdapterLuid),
-//    hProcessingThread(NULL),
-//    hNextFrameAvailable(hNextSurfaceAvailable),
-//    hStopEvent(NULL),
-//    pDevice(nullptr),
-//    pDeviceContext(nullptr)
-//{ }
-//
-//DXGIProcessor::~DXGIProcessor() {
-//}
-
-HRESULT MonitorContext::InitProcessor() {
-    // Init frames array
-    for (int i = 0; i < MAX_FRAMES_COUNT; i++) {
         framesChain[i] = nullptr;
     }
-    currentFrame = -1;
+    currentFrameIndex = -1;
+}
 
+HRESULT MonitorContext::InitProcessor() {
+    ComPtr<IDXGIFactory5> pFactory;
+    ComPtr<IDXGIAdapter> pAdapter;
+    ComPtr<ID3D11Device> pDevice0;
+    ComPtr<ID3D11DeviceContext> pDeviceContext0;
+
+    HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory));
+    if (FAILED(hr)) {
+        goto end;
+    }
+
+    hr = pFactory->EnumAdapterByLuid(adapterLuid, IID_PPV_ARGS(pAdapter.GetAddressOf()));
+    if (FAILED(hr)) {
+        goto end;
+    }
+
+    hr = D3D11CreateDevice(
+        pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+        FeatureLevels, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice0, NULL, &pDeviceContext0
+    );
+    if (FAILED(hr)) {
+        goto end;
+    }
+
+    hr = pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice));
+    if (FAILED(hr)) {
+        goto end;
+    }
+
+    hr = pDeviceContext0->QueryInterface(IID_PPV_ARGS(&pDeviceContext));
+    if (FAILED(hr)) {
+        goto end;
+    }
+
+end:
     return S_OK;
 }
 
@@ -826,9 +819,7 @@ DWORD MonitorContext::StopProcessor() {
 }
 
 DWORD WINAPI MonitorContext::MyThreadProc(LPVOID pContext) {
-    return HRESULT_CODE(
-        ((MonitorContext*)pContext)->ProcessorFunc()
-    );
+    return HRESULT_CODE(static_cast<MonitorContext*>(pContext)->ProcessorFunc());
 }
 
 HRESULT MonitorContext::ProcessorFunc() {
@@ -847,15 +838,14 @@ HRESULT MonitorContext::ProcessorFunc() {
 }
 
 HRESULT MonitorContext::ProcessorMain() {
-    IDARG_IN_SWAPCHAINSETDEVICE setDevice;
     IDXGIDevice* pDxgiDevice;
     HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pDxgiDevice));
     if (FAILED(hr)) {
         return hr;
     }
 
-    setDevice.pDevice = pDxgiDevice;
-    hr = IddCxSwapChainSetDevice(swapChain, &setDevice);
+    IDARG_IN_SWAPCHAINSETDEVICE chainSetDevice { .pDevice = pDxgiDevice };
+    hr = IddCxSwapChainSetDevice(swapChain, &chainSetDevice);
     if (FAILED(hr)) {
         return hr;
     }
@@ -880,36 +870,38 @@ HRESULT MonitorContext::ProcessorMain() {
                 break;
             }
         } else if (SUCCEEDED(hr)) {
-            IDXGIResource1* pSurface = nullptr;
+            //IDXGIResource1* pSurface1 = nullptr;
             ID3D11Texture2D* pTexture = nullptr;
             D3D11_TEXTURE2D_DESC desc = {};
 
             // Get display surface
-            bufferArgs.MetaData.pSurface->QueryInterface(IID_PPV_ARGS(&pSurface));
-            pSurface->QueryInterface(IID_PPV_ARGS(&pTexture));
+            //bufferArgs.MetaData.pSurface->QueryInterface(IID_PPV_ARGS(&pSurface1));
+            bufferArgs.MetaData.pSurface->QueryInterface(IID_PPV_ARGS(&pTexture));
             
             pTexture->GetDesc(&desc);
-            desc.MipLevels = 1;
-            desc.ArraySize = 1;
-            desc.SampleDesc.Count = 1;
-            desc.Usage = D3D11_USAGE_STAGING;
-            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-            desc.BindFlags = 0;//D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-            desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE;//D3D11_RESOURCE_MISC_SHARED;
+            //desc.MipLevels = 1;
+            //desc.ArraySize = 1;
+            //desc.SampleDesc.Count = 1;
+            //desc.Usage = D3D11_USAGE_STAGING;
+            //desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            //desc.BindFlags = 0;
+            //desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE;
 
             // Create display surface copy to pass it to service
             ID3D11Texture2D* pSharedTexture = nullptr;
+
             hr = pDevice->CreateTexture2D(&desc, NULL, &pSharedTexture);
             if (SUCCEEDED(hr)) {
                 pDeviceContext->CopyResource(pSharedTexture, _Notnull_ pTexture);
 
-                IDXGIResource1* pSharedSurface = nullptr;
-                hr = pSharedTexture->QueryInterface(IID_PPV_ARGS(&pSharedSurface));
-                PutFrameToChain(pSharedSurface);
+                IDXGIResource1* pSharedFrame = nullptr;
+                hr = pSharedTexture->QueryInterface(IID_PPV_ARGS(&pSharedFrame));
+                PutFrameToChain(pSharedFrame);
             }
             
             // We have finished processing this frame hence we release the reference on it.
-            CoSafeRelease(&pSurface);
+            //CoSafeRelease(&pSurface1);
+            CoSafeRelease(&pSharedTexture);
             CoSafeRelease(&pTexture);
             CoSafeRelease(&bufferArgs.MetaData.pSurface);
 
@@ -927,32 +919,50 @@ HRESULT MonitorContext::ProcessorMain() {
 void MonitorContext::PutFrameToChain(IDXGIResource1* pFrame) {
     EnterCriticalSection(&syncRoot);
 
-    currentFrame = (currentFrame + 1) / MAX_FRAMES_COUNT; // ++ and & 0x1111
-    if (framesChain[currentFrame]) {
-        //IDXGIResource1* pIntermediateFrame = framesChain[currentFrame]; // here references count equals 2
-        //framesChain[currentFrame] = pFrame;                             // but here again 1
-        CoSafeRelease(&framesChain[currentFrame]);
+    currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_COUNT; // ++ and & 0x1111
+    if (framesChain[currentFrameIndex]) {
+        //IDXGIResource1* pIntermediateFrame = framesChain[currentFrame];
+        //framesChain[currentFrame] = pFrame;
+        CoSafeRelease(&framesChain[currentFrameIndex]);
     }
-    framesChain[currentFrame] = pFrame;
+    framesChain[currentFrameIndex] = pFrame;
 
     LeaveCriticalSection(&syncRoot);
 }
 
-HRESULT MonitorContext::GetFrameFromChain(HANDLE* phFrame) {
-    HRESULT hr;
+HRESULT MonitorContext::GetFrameFromChain(HANDLE& phFrame) {
+    HRESULT hr { };
+
     EnterCriticalSection(&syncRoot);
-    if (currentFrame < 0 || framesChain[currentFrame] == nullptr) {
+
+    if (currentFrameIndex < 0 || framesChain[currentFrameIndex] == nullptr) {
         hr = E_PENDING;
     } else {
-        IDXGIResource1* pFrame = framesChain[currentFrame];
-        hr = pFrame->CreateSharedHandle(NULL, DXGI_SHARED_RESOURCE_READ, NULL, phFrame);
+        pRequestedFrame = framesChain[currentFrameIndex];
+        // CRITICAL IMPORTANT!!!!! MAXIMUM STUPID IDIOT 3000 (no)
+        pRequestedFrame->AddRef();
+        // pRequestedFrame->_count now 2
+        // END CRITICAL IMPORTANT
 
-        IDXGIResource1* pSharedResource = nullptr;
-        pDevice->OpenSharedResource1(*phFrame, IID_PPV_ARGS(&pSharedResource));
-        CoSafeRelease(&pSharedResource);
+        hr = pRequestedFrame->CreateSharedHandle(NULL, DXGI_SHARED_RESOURCE_READ, NULL, &phFrame);
+        // No pRequestedFrame->Release(), because pRequestedFrame->_count
+        // may becode 0 (not 1) in MonitorContext::PutFrameToChain
     }
+
     LeaveCriticalSection(&syncRoot);
     return hr;
+}
+
+HRESULT MonitorContext::FinishFrameRequest() {
+    EnterCriticalSection(&syncRoot);
+
+    // pRequestedFrame shouldn't be nullptr, but just in case
+    if (pRequestedFrame) {
+        CoSafeRelease(&pRequestedFrame);
+    }
+
+    LeaveCriticalSection(&syncRoot);
+    return S_OK;
 }
 
 /*
@@ -962,139 +972,139 @@ HRESULT MonitorContext::GetFrameFromChain(HANDLE* phFrame) {
 /// <summary>
 /// Initializes frames sending by the driver
 /// </summary>
-DWORD MonitorContext::InitFrameSending(INIT_SEND_INFO* pSendInfo) {
-    clientSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pSendInfo->clientSocketInfo, NULL, 0);
-    if (clientSocket == INVALID_SOCKET) {
-        return WSAGetLastError();
-    }
-
-    return 0;
-}
-
-HRESULT MonitorContext::SendNextFrame() {
-    HRESULT hr = S_OK;
-
-    // Try get next frame
-    EnterCriticalSection(&syncRoot);
-    if (currentFrame < 0 || framesChain[currentFrame] == nullptr) {
-        LeaveCriticalSection(&syncRoot);
-
-        // send 0 bytes to client
-        int nullSize = 0;
-        int bytesSent = send(clientSocket, (char*)&nullSize, sizeof(nullSize), 0);
-        if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
-            DWORD err = WSAGetLastError();
-            UNREFERENCED_PARAMETER(err);
-            return E_FAIL;
-        }
-        return S_OK;
-    }
-
-    IDXGIResource1* pResource = framesChain[currentFrame];
-    framesChain[currentFrame] = nullptr;
-
-    LeaveCriticalSection(&syncRoot);
-
-    // Process frame
-    WICPixelFormatGUID pixelFormatGuid = GUID_WICPixelFormat32bppRGBA;
-
-    ID3D11Texture2D* pTexture = nullptr;
-    D3D11_TEXTURE2D_DESC desc = {};
-    D3D11_MAPPED_SUBRESOURCE mappedResource = {};
-
-    IWICBitmap* pWicBitmap = nullptr;
-    IWICImagingFactory* pWicFactory = nullptr;
-    IWICBitmapEncoder* pEncoder = nullptr;
-    IWICBitmapFrameEncode* pFrame = nullptr;
-    IStream* pOutStream = nullptr;
-
-    pResource->QueryInterface(IID_PPV_ARGS(&pTexture));
-    pTexture->GetDesc(&desc);
-
-    hr = pDeviceContext->Map(pTexture, 0, D3D11_MAP_READ, 0, &mappedResource);
-    if (FAILED(hr)) { goto end; }
-
-    hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWicFactory));
-    if (FAILED(hr)) { goto end; }
-
-    // --- Create picture
-    hr = pWicFactory->CreateBitmapFromMemory(desc.Width, desc.Height,
-        GUID_WICPixelFormat32bppRGBA, mappedResource.RowPitch,
-        desc.Height * mappedResource.RowPitch, (BYTE*)mappedResource.pData, &pWicBitmap);
-    if (FAILED(hr)) { goto end; }
-
-    // 1. Create and init encoder
-    hr = pWicFactory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &pEncoder);
-    if (FAILED(hr)) { goto end; }
-
-    // 2. Set up an output buffer
-    hr = CreateStreamOnHGlobal(nullptr, TRUE, &pOutStream);
-    if (FAILED(hr)) { goto end; }
-
-    hr = pEncoder->Initialize(pOutStream, WICBitmapEncoderNoCache);
-    if (FAILED(hr)) { goto end; }
-
-    // 3. Create and init frame
-    hr = pEncoder->CreateNewFrame(&pFrame, nullptr);
-    if (FAILED(hr)) { goto end; }
-
-    hr = pFrame->Initialize(nullptr);
-    if (FAILED(hr)) { goto end; }
-
-    hr = pFrame->SetSize(desc.Width, desc.Height);
-    if (FAILED(hr)) { goto end; }
-
-    hr = pFrame->SetPixelFormat(&pixelFormatGuid);
-    if (FAILED(hr)) { goto end; }
-
-    // 4. Write to stream
-    hr = pFrame->WriteSource(pWicBitmap, nullptr);
-    if (FAILED(hr)) { goto end; }
-
-    // 5. Commit changes
-    hr = pFrame->Commit();
-    if (FAILED(hr)) { goto end; }
-
-    hr = pEncoder->Commit();
-    if (FAILED(hr)) { goto end; }
-
-    // 6. Get data from out stream
-    {
-        HGLOBAL hGlobal = nullptr;
-        GetHGlobalFromStream(pOutStream, &hGlobal);
-        char* jpegData = (char*)GlobalLock(hGlobal);
-        auto jpegSize = GlobalSize(hGlobal);
-
-        // 7. Send data to client
-        int bytesSent = send(clientSocket, (char*)&jpegSize, sizeof(int), 0);
-        bytesSent = send(clientSocket, jpegData, (int)jpegSize, 0);
-        if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
-            DWORD err = WSAGetLastError();
-            UNREFERENCED_PARAMETER(err);
-            hr = E_FAIL;
-        }
-    }
-    
-end:
-    // --- END Create picture
-    pDeviceContext->Unmap(pTexture, 0);
-
-    CoSafeRelease(&pResource);
-    CoSafeRelease(&pTexture);
-
-    CoSafeRelease(&pWicFactory);
-    CoSafeRelease(&pFrame);
-    CoSafeRelease(&pEncoder);
-    CoSafeRelease(&pOutStream);
-
-    return hr;
-}
-
-void MonitorContext::FinalizeFrameSending() {
-    if (clientSocket == INVALID_SOCKET) {
-        closesocket(clientSocket);
-        clientSocket = INVALID_SOCKET;
-    }
-}
+//DWORD MonitorContext::InitFrameSending(INIT_SEND_INFO* pSendInfo) {
+//    clientSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pSendInfo->clientSocketInfo, NULL, 0);
+//    if (clientSocket == INVALID_SOCKET) {
+//        return WSAGetLastError();
+//    }
+//
+//    return 0;
+//}
+//
+//HRESULT MonitorContext::SendNextFrame() {
+//    HRESULT hr = S_OK;
+//
+//    // Try get next frame
+//    EnterCriticalSection(&syncRoot);
+//    if (currentFrame < 0 || framesChain[currentFrame] == nullptr) {
+//        LeaveCriticalSection(&syncRoot);
+//
+//        // send 0 bytes to client
+//        int nullSize = 0;
+//        int bytesSent = send(clientSocket, (char*)&nullSize, sizeof(nullSize), 0);
+//        if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
+//            DWORD err = WSAGetLastError();
+//            UNREFERENCED_PARAMETER(err);
+//            return E_FAIL;
+//        }
+//        return S_OK;
+//    }
+//
+//    IDXGIResource1* pResource = framesChain[currentFrame];
+//    framesChain[currentFrame] = nullptr;
+//
+//    LeaveCriticalSection(&syncRoot);
+//
+//    // Process frame
+//    WICPixelFormatGUID pixelFormatGuid = GUID_WICPixelFormat32bppRGBA;
+//
+//    ID3D11Texture2D* pTexture = nullptr;
+//    D3D11_TEXTURE2D_DESC desc = {};
+//    D3D11_MAPPED_SUBRESOURCE mappedResource = {};
+//
+//    IWICBitmap* pWicBitmap = nullptr;
+//    IWICImagingFactory* pWicFactory = nullptr;
+//    IWICBitmapEncoder* pEncoder = nullptr;
+//    IWICBitmapFrameEncode* pFrame = nullptr;
+//    IStream* pOutStream = nullptr;
+//
+//    pResource->QueryInterface(IID_PPV_ARGS(&pTexture));
+//    pTexture->GetDesc(&desc);
+//
+//    hr = pDeviceContext->Map(pTexture, 0, D3D11_MAP_READ, 0, &mappedResource);
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWicFactory));
+//    if (FAILED(hr)) { goto end; }
+//
+//    // --- Create picture
+//    hr = pWicFactory->CreateBitmapFromMemory(desc.Width, desc.Height,
+//        GUID_WICPixelFormat32bppRGBA, mappedResource.RowPitch,
+//        desc.Height * mappedResource.RowPitch, (BYTE*)mappedResource.pData, &pWicBitmap);
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 1. Create and init encoder
+//    hr = pWicFactory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &pEncoder);
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 2. Set up an output buffer
+//    hr = CreateStreamOnHGlobal(nullptr, TRUE, &pOutStream);
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = pEncoder->Initialize(pOutStream, WICBitmapEncoderNoCache);
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 3. Create and init frame
+//    hr = pEncoder->CreateNewFrame(&pFrame, nullptr);
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = pFrame->Initialize(nullptr);
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = pFrame->SetSize(desc.Width, desc.Height);
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = pFrame->SetPixelFormat(&pixelFormatGuid);
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 4. Write to stream
+//    hr = pFrame->WriteSource(pWicBitmap, nullptr);
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 5. Commit changes
+//    hr = pFrame->Commit();
+//    if (FAILED(hr)) { goto end; }
+//
+//    hr = pEncoder->Commit();
+//    if (FAILED(hr)) { goto end; }
+//
+//    // 6. Get data from out stream
+//    {
+//        HGLOBAL hGlobal = nullptr;
+//        GetHGlobalFromStream(pOutStream, &hGlobal);
+//        char* jpegData = (char*)GlobalLock(hGlobal);
+//        auto jpegSize = GlobalSize(hGlobal);
+//
+//        // 7. Send data to client
+//        int bytesSent = send(clientSocket, (char*)&jpegSize, sizeof(int), 0);
+//        bytesSent = send(clientSocket, jpegData, (int)jpegSize, 0);
+//        if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
+//            DWORD err = WSAGetLastError();
+//            UNREFERENCED_PARAMETER(err);
+//            hr = E_FAIL;
+//        }
+//    }
+//    
+//end:
+//    // --- END Create picture
+//    pDeviceContext->Unmap(pTexture, 0);
+//
+//    CoSafeRelease(&pResource);
+//    CoSafeRelease(&pTexture);
+//
+//    CoSafeRelease(&pWicFactory);
+//    CoSafeRelease(&pFrame);
+//    CoSafeRelease(&pEncoder);
+//    CoSafeRelease(&pOutStream);
+//
+//    return hr;
+//}
+//
+//void MonitorContext::FinalizeFrameSending() {
+//    if (clientSocket == INVALID_SOCKET) {
+//        closesocket(clientSocket);
+//        clientSocket = INVALID_SOCKET;
+//    }
+//}
 
 #pragma endregion

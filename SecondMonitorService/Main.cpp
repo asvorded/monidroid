@@ -7,13 +7,14 @@
 #include <iostream>
 #include <list>
 #include <array>
+#include <codecvt>
 
 #include <Windows.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <strsafe.h>
 #include <dxgi1_5.h>
-#include <d3d11_1.h>
+#include <d3d11_3.h>
 #include <wincodec.h>
 
 #include "../MonidroidInfo/Monidroid.h"
@@ -558,149 +559,150 @@ HRESULT SendFrames(ClientInfo* pClientInfo) {
 	}
 	HANDLE hMyProcess = GetCurrentProcess();
 
-	IDXGIFactory5* pDxgiFactory = nullptr;
-	IDXGIAdapter* pAdapter = nullptr;
-	ID3D11Device* pDevice0 = nullptr;
-	ID3D11DeviceContext* pDeviceContext0 = nullptr;
-	ID3D11Device1* pDevice = nullptr;
-	ID3D11DeviceContext1* pDeviceContext = nullptr;
+	ComPtr<IDXGIFactory5> pDxgiFactory;
+	ComPtr<IDXGIAdapter> pAdapter;
+	ComPtr<ID3D11Device> pDevice0;
+	ComPtr<ID3D11DeviceContext> pDeviceContext0;
+	ComPtr<ID3D11Device3> pDevice;
+	ComPtr<ID3D11DeviceContext3> pDeviceContext;
 
-	IWICImagingFactory* pWicFactory = nullptr;
+	ComPtr<IWICImagingFactory> pWicFactory;
 
 	// Create D3D device to process frames
 	HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pDxgiFactory));
-	if (FAILED(hr)) {
-		goto end;
+
+	if (SUCCEEDED(hr)) {
+		hr = pDxgiFactory->EnumAdapterByLuid(pClientInfo->adapterLuid, IID_PPV_ARGS(&pAdapter));
 	}
 
-	hr = pDxgiFactory->EnumAdapterByLuid(pClientInfo->adapterLuid, IID_PPV_ARGS(&pAdapter));
-	if (FAILED(hr)) {
-		goto end;
-	}
-
-	hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
-		D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-		featureLevels.data(), static_cast<UINT>(featureLevels.size()),
-		D3D11_SDK_VERSION, &pDevice0, NULL, &pDeviceContext0
-	);
-	if (FAILED(hr)) {
-		goto end;
+	if (SUCCEEDED(hr)) {
+		hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
+			D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+			featureLevels.data(), static_cast<UINT>(featureLevels.size()),
+			D3D11_SDK_VERSION, &pDevice0, NULL, &pDeviceContext0
+		);
 	}
 
 	// Get D3D 11.1 interfaces
-	hr = pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice));
-	if (FAILED(hr)) {
-		goto end;
+	if (SUCCEEDED(hr)) {
+		hr = pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice));
 	}
 
-	hr = pDeviceContext0->QueryInterface(IID_PPV_ARGS(&pDeviceContext));
-	if (FAILED(hr)) {
-		goto end;
+	if (SUCCEEDED(hr)) {
+		hr = pDeviceContext0->QueryInterface(IID_PPV_ARGS(&pDeviceContext));
 	}
 
 	// Create WIC factory
-	hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWicFactory));
-	if (FAILED(hr)) {
-		goto end;
+	if (SUCCEEDED(hr)) {
+		hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWicFactory));
 	}
 
 	// Receive frames from driver
-	FRAME_MONITOR_INFO frameInfo;
-	FRAME_MONITOR_INFO frameInfoOut;
-	frameInfo = {};
-	frameInfoOut = {};
-	frameInfo.connectorIndex = pClientInfo->connectorIndex;
-	DWORD bytesReceived;
+	FRAME_MONITOR_INFO frameInfo { .connectorIndex = pClientInfo->connectorIndex, .hDriverHandle = nullptr };
+	FRAME_MONITOR_INFO frameInfoOut { };
+	DWORD bytesReceived = -1;
 
-	bool sending;
-	sending = true;
+	bool sending = SUCCEEDED(hr);
 	while (sending) {
 		if (DeviceIoControl(hAdapter, IOCTL_IDDCX_REQUEST_FRAME,
-			&frameInfo, sizeof(frameInfo), &frameInfoOut, sizeof(frameInfoOut), &bytesReceived, NULL))
+			&frameInfo, sizeof(frameInfo), &frameInfoOut, sizeof(frameInfoOut), &bytesReceived, nullptr))
 		{
-			HANDLE hSharedFrame = frameInfoOut.hDriverHandle;
+			HANDLE hFrameHandle { };
 
-			// Get frame resource		
-			IDXGIResource1* pSharedResource = nullptr;
-			ID3D11Texture2D* pTexture = nullptr;
-			hr = pDevice->OpenSharedResource1(hSharedFrame, __uuidof(IDXGIResource1), (void**)&pSharedResource);
-			if (FAILED(hr)) {
-				break;
+			if (!DuplicateHandle(
+				hDriverProcess, frameInfoOut.hDriverHandle,
+				hMyProcess, &hFrameHandle,
+				0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
+			)) {
+				CloseHandle(frameInfoOut.hDriverHandle);
+				continue;
 			}
 
-			pSharedResource->QueryInterface(IID_PPV_ARGS(&pTexture));
-				
-			// Get bytes
-			D3D11_TEXTURE2D_DESC desc;
-			pTexture->GetDesc(&desc);
-
-			D3D11_MAPPED_SUBRESOURCE mappedResource;
-			pDeviceContext->Map(_Notnull_ pTexture, 0, D3D11_MAP_READ, 0, &mappedResource);
-
-			BYTE* data = (BYTE*)mappedResource.pData;
-			UINT rowPitch = mappedResource.RowPitch;
-			UINT imageSize = rowPitch * desc.Height;
-
-			// Start creating picture
-			IWICBitmapEncoder* pEncoder = nullptr;
-			IWICStream* pWicStream = nullptr;
-			IWICBitmapFrameEncode* pFrame = nullptr;
-			IStream* pStream = nullptr;
-
-			HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE, 0);
-			hr = CreateStreamOnHGlobal(hGlobal, TRUE, &pStream);
-
-			hr = pWicFactory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &pEncoder);
-
-			hr = pWicFactory->CreateStream(&pWicStream);
-			hr = pWicStream->InitializeFromIStream(pStream);
-
-			hr = pEncoder->Initialize(pWicStream, WICBitmapEncoderNoCache);
-			hr = pEncoder->CreateNewFrame(&pFrame, nullptr);
-
-			hr = pFrame->Initialize(nullptr);
-			hr = pFrame->SetSize(desc.Width, desc.Height);
-			hr = pFrame->SetPixelFormat((GUID*)&GUID_WICPixelFormat24bppRGB);
-			hr = pFrame->WritePixels(desc.Height, rowPitch, imageSize, data);
-			
-			hr = pFrame->Commit();
-			hr = pEncoder->Commit();
-			
-			pDeviceContext->Unmap(pTexture, 0);
-
+			ComPtr<ID3D11Texture2D> pSharedTexture;
+			hr = pDevice->OpenSharedResource1(hFrameHandle, IID_PPV_ARGS(&pSharedTexture));
 			if (SUCCEEDED(hr)) {
-				// Send picture
-				STATSTG stat;
-				pStream->Stat(&stat, STATFLAG_NONAME);
-				int size = stat.cbSize.QuadPart;
-				int intSize = 4;
-				ULONG bufSize = FRAME_WORD_LEN + intSize + size;
-				ULONG actual;
+				// Create staging texture
+				// 1. Cannot create STAGING and SHARED_NTHANDLE texture
+				// 2. ID3D11Device3::ReadFromSubresource does not work on ID3D11Device3 different from driver's ID3D11Device3
+				D3D11_TEXTURE2D_DESC desc { };
+				pSharedTexture->GetDesc(&desc);
+				desc.Usage = D3D11_USAGE_STAGING;
+				desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				desc.BindFlags = 0;
+				desc.MiscFlags = 0;
 
-				char* sendBuffer = new char[bufSize];
+				ComPtr<ID3D11Texture2D> pTexture;
 
-				memcpy(sendBuffer, FRAME_WORD, FRAME_WORD_LEN);
-				memcpy(sendBuffer + FRAME_WORD_LEN, (void*)&size, intSize);
-
- 				pStream->Read(sendBuffer + FRAME_WORD_LEN + intSize, size, &actual);
-
-				int res = send(pClientInfo->clientSocket, sendBuffer, bufSize, 0);
-				if (res == 0 || res == SOCKET_ERROR) {
-					sending = false;
+				hr = pDevice->CreateTexture2D(&desc, nullptr, &pTexture);
+				if (FAILED(hr)) {
+					continue;
 				}
+				pDeviceContext->CopyResource(pTexture.Get(), pSharedTexture.Get());
+				
+				// Get bytes
+				D3D11_MAPPED_SUBRESOURCE mappedResource { };
+				hr = pDeviceContext->Map(pTexture.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+				
+				// Start creating picture
+				IWICBitmap* pRawBitmap = nullptr;
+				IWICBitmapEncoder* pEncoder = nullptr;
+				IStream* pOutStream = nullptr;
+				IWICBitmapFrameEncode* pFrame = nullptr;
 
-				delete[] sendBuffer;
+				hr = pWicFactory->CreateBitmapFromMemory(
+					desc.Width, desc.Height, GUID_WICPixelFormat32bppRGBA,
+					mappedResource.RowPitch, mappedResource.DepthPitch,
+					static_cast<BYTE*>(mappedResource.pData), &pRawBitmap
+				);
+				hr = pWicFactory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &pEncoder);
+
+				hr = CreateStreamOnHGlobal(nullptr, TRUE, &pOutStream);
+				hr = pEncoder->Initialize(pOutStream, WICBitmapEncoderNoCache);
+				
+				hr = pEncoder->CreateNewFrame(&pFrame, nullptr);
+				hr = pFrame->Initialize(nullptr);
+				hr = pFrame->SetSize(desc.Width, desc.Height);
+				auto formatGUID = GUID_WICPixelFormat32bppRGBA;
+				hr = pFrame->SetPixelFormat(&formatGUID);
+				hr = pFrame->WriteSource(pRawBitmap, nullptr);
+
+				hr = pFrame->Commit();
+				hr = pEncoder->Commit();
+
+				pDeviceContext->Unmap(pTexture.Get(), 0);
+
+				if (SUCCEEDED(hr)) {
+					// Send picture
+					HGLOBAL hGlobal = nullptr;
+					hr = GetHGlobalFromStream(pOutStream, &hGlobal);
+					char* jpegData = (char*)GlobalLock(hGlobal);
+					int jpegSize = GlobalSize(hGlobal);
+
+					//STATSTG stat;
+					//pStream->Stat(&stat, STATFLAG_NONAME);
+					//int size = stat.cbSize.QuadPart;
+					ULONG bufSize = FRAME_WORD_LEN + sizeof(jpegSize) + jpegSize;
+					//ULONG actual;
+
+					auto sendBuffer = std::make_unique<char[]>(bufSize);
+
+					memcpy(sendBuffer.get(), FRAME_WORD, FRAME_WORD_LEN);
+					memcpy(sendBuffer.get() + FRAME_WORD_LEN, (void*)&jpegSize, sizeof(jpegSize));
+					memcpy(sendBuffer.get() + FRAME_WORD_LEN + sizeof(jpegSize), _Notnull_ jpegData, jpegSize);
+
+					int bytesSent = send(pClientInfo->clientSocket, sendBuffer.get(), bufSize, 0);
+					if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
+						sending = false;
+					}
+
+					GlobalUnlock(hGlobal);
+				}
+				CloseHandle(hFrameHandle);
+				CoSafeRelease(&pFrame);
+				CoSafeRelease(&pOutStream);
+				CoSafeRelease(&pEncoder);
+				CoSafeRelease(&pRawBitmap);
 			}
-
-			// Cleanup
-cleanup:
-			CoSafeRelease(&pEncoder);
-			CoSafeRelease(&pStream);
-			CoSafeRelease(&pWicStream);
-			CoSafeRelease(&pFrame);
-
-			CoSafeRelease(&pTexture);
-			CloseHandle(hSharedFrame);
 		} else {
 			// No frame, send black screen
 			int size = 0;
@@ -720,15 +722,6 @@ cleanup:
 		}
 	}
 
-end:
-	CoSafeRelease(&pDxgiFactory);
-	CoSafeRelease(&pAdapter);
-	CoSafeRelease(&pDevice0);
-	CoSafeRelease(&pDeviceContext0);
-	CoSafeRelease(&pDevice);
-	CoSafeRelease(&pDeviceContext);
-	CoSafeRelease(&pWicFactory);
-
 	CloseHandle(hDriverProcess);
 	CloseHandle(hMyProcess);
 
@@ -736,108 +729,42 @@ end:
 }
 
 /// <summary>
-/// New function to send frames (step 3)
-/// </summary>
-HRESULT SendFrames2(ClientInfo* pClientInfo) {
-	DWORD bytesReturned = 0;
-	BOOL result;
-	// Initialize driver socket handles
-	WSAPROTOCOL_INFOW clientInfo = {};
-	WSAPROTOCOL_INFOW serverInfo = {};
-
-	WSADuplicateSocketW(pClientInfo->clientSocket, pClientInfo->driverProcessId, &clientInfo);
-	WSADuplicateSocketW(serverSocket, pClientInfo->driverProcessId, &serverInfo);
-
-	INIT_SEND_INFO sendInfo;
-	sendInfo.connectorIndex = pClientInfo->connectorIndex;
-	sendInfo.clientSocketInfo = clientInfo;
-
-	DWORD initCode = 0;
-	result = DeviceIoControl(hAdapter, IOCTL_IDDCX_INIT_FRAME_SEND,
-		&sendInfo, sizeof(sendInfo), &initCode, sizeof(initCode), &bytesReturned, NULL);
-	if (!result) {
-		MainDebugPrint(L"* First DeviceIoControl failed with code %d", GetLastError());
-		return E_FAIL;
-	}
-	if (initCode != 0) {
-		MainDebugPrint(L"* IOCTL_IDDCX_INIT_FRAME_SEND failed with internal code %d\n", initCode);
-		return HRESULT_FROM_WIN32(initCode);
-	}
-
-	char* headerBuf = new char[FRAME_WORD_LEN];
-
-	// Initizlize header buffer
-	memcpy(headerBuf, FRAME_WORD, FRAME_WORD_LEN);
-
-	while (true) {
-		// Send header
-		int bytesSent = send(pClientInfo->clientSocket, headerBuf, FRAME_WORD_LEN, 0);
-		if (bytesSent == 0 || bytesSent == SOCKET_ERROR) {
-			MainDebugPrint(L"### Send failed, ending communication...\n");
-			break;
-		}
-
-		// Send request to driver to send next frame data
-		HRESULT hr = S_OK;
-		BOOL result = DeviceIoControl(hAdapter, IOCTL_IDDCX_SEND_FRAME,
-			&(pClientInfo->connectorIndex), sizeof(pClientInfo->connectorIndex),
-			&hr, sizeof(hr), &bytesReturned, NULL);
-		if (!result) {
-			MainDebugPrint(L"** Second DeviceIoControl failed with error %d\n", GetLastError());
-			break;
-		}
-		if (FAILED(hr)) {
-			MainDebugPrint(L"** IOCTL_IDDCX_SEND_FRAME failed with internal HRESULT %x\n", hr);
-			Sleep(2000);
-		}
-	}
-
-	DeviceIoControl(hAdapter, IOCTL_IDDCX_FINALIZE_FRAME_SEND,
-		&(pClientInfo->connectorIndex), sizeof(pClientInfo->connectorIndex),
-		NULL, 0, &bytesReturned, NULL);
-
-	delete headerBuf;
-	return S_OK;
-}
-
-/// <summary>
 /// Communication thread main function
 /// </summary>
 /// <param name="param">Pointer to ClientInfo structure</param>
-DWORD CommunicationMain(void* param) {
-	ClientInfo* pClientInfo = static_cast<ClientInfo*>(param);
+DWORD WINAPI CommunicationMain(void* param) {
+	std::unique_ptr pClientInfo = std::unique_ptr<ClientInfo>(static_cast<ClientInfo*>(param));
 	param = nullptr;
 	SOCKET clientSocket = pClientInfo->clientSocket;
-	DWORD code;
 
 	// COM
-	CoInitialize(NULL);
+	if (FAILED(CoInitialize(nullptr))) {
+		return HRESULT_CODE(E_UNEXPECTED);
+	}
 
 	// 1. Identify device
-	code = IdentifyDevice(pClientInfo);
+	DWORD code = IdentifyDevice(pClientInfo.get());
 	if (code != 0) {
-		goto end;
+		return code;
 	}
 
 	// 2. Send I/O request to adapter
-	code = ConnectMonitor(pClientInfo);
+	code = ConnectMonitor(pClientInfo.get());
 	if (code != 0) {
-		goto end;
+		return code;
 	}
 
 	// 3. Get frames from driver and send to device
-	SendFrames(pClientInfo);
-
+	SendFrames(pClientInfo.get());
 
 	// 4. End communication
-	DisconnectMonitor(pClientInfo);
+	DisconnectMonitor(pClientInfo.get());
 end:
 	EnterCriticalSection(&syncRoot);
-	clients.remove(pClientInfo);
+	clients.remove(pClientInfo.get());
 	LeaveCriticalSection(&syncRoot);
 
 	CoUninitialize();
-	delete pClientInfo;
 	return 0;
 }
 
@@ -846,31 +773,32 @@ end:
 /// </summary>
 DWORD EchoMain(void* unused) {
 	bool accepting = true;
-	int headerSize = strlen(CLIENT_ECHO_WORD);
 	int responseHeaderSize = strlen(SERVER_ECHO_WORD);
 
 	// Setup buffer with computer name
 	DWORD cCompName = 0;
 	GetComputerNameExW(ComputerNameDnsHostname, NULL, &cCompName);
-	auto compName = std::unique_ptr<wchar_t[]>(new wchar_t[cCompName]);
-	// TODO: Convert computer name to UTF-8 string for compability with Linux platforms
-	GetComputerNameExW(ComputerNameDnsHostname, compName.get(), &cCompName);
+    std::wstring compName(cCompName, 0);
+	//auto compName = std::unique_ptr<wchar_t[]>(new wchar_t[cCompName]);
+	GetComputerNameExW(ComputerNameDnsHostname, compName.data(), &cCompName);
 
+    // cCompName how does not includes NULL character
 	int sendBufSize = responseHeaderSize + 4 + cCompName * 2;
 	auto sendBuf = std::unique_ptr<char[]>(new char[sendBufSize]);
 	memcpy(sendBuf.get(), SERVER_ECHO_WORD, responseHeaderSize);
 	memcpy(sendBuf.get() + responseHeaderSize, &cCompName, 4);
-	memcpy(sendBuf.get() + responseHeaderSize + 4, compName.get(), cCompName * 2);
+	memcpy(sendBuf.get() + responseHeaderSize + 4, compName.data(), cCompName * sizeof(wchar_t));
 
-	auto buf = std::unique_ptr<char[]>(new char[headerSize]);
+	//auto buf = std::unique_ptr<char[]>(new char[headerSize]);
+	std::string buf(CLIENT_ECHO_WORD);
 	while (accepting) {
 		sockaddr addr;
 		int addrlen = sizeof(sockaddr);
-		int bytesReceived = recvfrom(echoSocket, buf.get(), headerSize, 0, &addr, &addrlen);
+		int bytesReceived = recvfrom(echoSocket, buf.data(), buf.size(), 0, &addr, &addrlen);
 		if (bytesReceived == 0 || bytesReceived == SOCKET_ERROR) {
 			MainDebugPrint(L"recvfrom failed with code %d\n", WSAGetLastError());
 			accepting = false;
-		} else if (bytesReceived == headerSize && memcmp(buf.get(), CLIENT_ECHO_WORD, headerSize) == 0) {
+		} else if (bytesReceived == buf.size() && buf == CLIENT_ECHO_WORD) {
 			int bytesSent = sendto(echoSocket, sendBuf.get(), sendBufSize, 0, &addr, addrlen);
 			if (bytesSent == SOCKET_ERROR) {
 				accepting = false;
