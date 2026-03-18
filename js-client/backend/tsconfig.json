@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/backend",
+
+    "module": "commonjs",
+  },
+}

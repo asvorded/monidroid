@@ -1,0 +1,30 @@
+{
+  "name": "monidroid-control",
+  "version": "0.0.1",
+  "main": "dist/backend/main.js",
+  "scripts": {
+    "dev-web": "vite --port 14764",
+    "dev-desktop": "tsc -p backend/tsconfig.json && electron .",
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-router": "^7.10.1",
+    "socket.io-client": "^4.8.1",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@gravity-ui/uikit": "^7.28.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "electron": "^39.2.6",
+    "vite": "^7.2.7",
+    "vite-plugin-svgr": "^4.5.0"
+  }
+}

@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+.shadowed-scroll-area {
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  background:
+    /* Shadow Cover TOP */
+    linear-gradient(
+      var(--g-color-base-background) 30%,
+      rgba(255, 255, 255, 0)
+    ) top,
+    
+    /* Shadow Cover BOTTOM */
+    linear-gradient(
+      rgba(255, 255, 255, 0), 
+      var(--g-color-base-background) 70%
+    ) bottom,
+
+    /* Shadow TOP */
+    radial-gradient(
+        ellipse at top,
+        rgba(0, 0, 0, 0.1) 0%,
+        rgba(0, 0, 0, 0) 95%
+    ),
+    
+    /* Shadow BOTTOM */
+    radial-gradient(
+        ellipse at bottom,
+        rgba(0, 0, 0, 0.1) 0%,
+        rgba(0, 0, 0, 0) 95%
+    ) bottom;
+  
+  background-repeat: no-repeat;
+  background-size: 100% 40px, 100% 40px, 100% 16px, 100% 16px;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.device-logo {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 100%;
+  background-color: var(--g-color-base-background);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+}
+
+.ripple-container {
+  position: relative;
+}
+
+.ripple {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 100%;
+  
+  background: var(--g-color-base-selection);
+
+  animation: ripples 3s ease-out infinite;
+}
+
+@keyframes ripples {
+  from {
+      transform: scale(1);
+      opacity: 0.4;
+  }
+  to {
+      transform: scale(2.75);
+      opacity: 0;
+  }
+}

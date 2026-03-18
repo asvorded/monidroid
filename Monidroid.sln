@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36930.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MonidroidDriver", "iddcx-driver\MonidroidDriver.vcxproj", "{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MonidroidCommon", "common\MonidroidCommon.vcxproj", "{2921A719-6A80-D405-C34C-F8DF919145FD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM64 = Debug|ARM64
+		Debug|x64 = Debug|x64
+		Release|ARM64 = Release|ARM64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|ARM64.Build.0 = Debug|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|x64.ActiveCfg = Debug|x64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|x64.Build.0 = Debug|x64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Debug|x64.Deploy.0 = Debug|x64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|ARM64.ActiveCfg = Release|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|ARM64.Build.0 = Release|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|ARM64.Deploy.0 = Release|ARM64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|x64.ActiveCfg = Release|x64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|x64.Build.0 = Release|x64
+		{9A8C91D7-AEE3-481D-BB03-A9EBD44FCE34}.Release|x64.Deploy.0 = Release|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Debug|ARM64.ActiveCfg = Debug|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Debug|ARM64.Build.0 = Debug|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Debug|x64.ActiveCfg = Debug|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Debug|x64.Build.0 = Debug|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Release|ARM64.ActiveCfg = Release|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Release|ARM64.Build.0 = Release|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Release|x64.ActiveCfg = Release|x64
+		{2921A719-6A80-D405-C34C-F8DF919145FD}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {335484C2-C0E2-4CD0-AF7B-E108B4209869}
+	EndGlobalSection
+EndGlobal
