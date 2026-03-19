@@ -1,9 +1,12 @@
 # CMake
 build/
+out/
 
 # Visual Studio and MSBuild
 .vs/
 x64/
+[Dd]ebug/
+[Rr]elease/
 *.user
 
 # VS Code workspace settings

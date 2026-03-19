@@ -18,8 +18,6 @@
 // {ADF1470D-14D2-46AD-9499-896FDD87E215}
 DEFINE_GUID(MonidroidGroupGuid, 0xadf1470d, 0x14d2, 0x46ad, 0x94, 0x99, 0x89, 0x6f, 0xdd, 0x87, 0xe2, 0x15);
 
-#define MD_RETURN_IF_FAILED(hr)                 if (FAILED(hr)) return (hr);
-
 struct ADAPTER_MONITOR_INFO {
     _In_ SOCKET monitorNumberBySocket; // IN
     _In_ int width;  // IN

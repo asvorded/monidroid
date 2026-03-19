@@ -8,9 +8,13 @@
 #include <monidroid.h>
 
 #include "echoserver.h"
-#include "utils.h"
-#include "server.h"
 #include "logger.h"
+#include "server.h"
+#ifdef __linux__
+#include "linux/utils.h"
+#else
+#include "win32/utils.h"
+#endif
 
 static void usage() {
     std::cout <<
@@ -59,6 +63,8 @@ int main(int argc, char *argv[]) {
 #ifdef __linux__
     // EVDI health check
     evdiHealthCheck();
+#else
+    iddcxHealthCheck();
 #endif
 
     boost::asio::io_context context;

@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.20)
 
 project(monidroid-linux)
 
+if(LINUX)
+    set(MD_PLATFORM linux)
+else()
+    set(MD_PLATFORM "win32")
+endif()
+
 # TARGET: default
 add_executable(default)
 target_sources(
@@ -10,14 +16,14 @@ target_sources(
         src/echoserver.cpp
         src/server.cpp
         src/client.cpp
-        src/utils.cpp
+        src/${MD_PLATFORM}/utils.cpp
 )
 
 target_compile_features(default PRIVATE cxx_std_20)
 
 # LibJPEG-Turbo
 if(LINUX)
-    set(libjpeg-turbo_DIR CACHE STRING /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo)    
+    set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")    
 endif()
 
 find_package(libjpeg-turbo REQUIRED)
@@ -59,7 +65,7 @@ if(LINUX)
 endif()
 
 # TARGET: test
-add_executable(test playground/ooo.cpp)
+add_executable(test ${CMAKE_CURRENT_LIST_DIR}/playground/ooo.cpp)
 
 target_compile_features(test PRIVATE cxx_std_20)
 
