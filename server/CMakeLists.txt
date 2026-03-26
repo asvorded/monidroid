@@ -1,25 +1,19 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(monidroid-linux)
+project(monidroid-server)
 
-if(LINUX)
-    set(MD_PLATFORM linux)
-else()
-    set(MD_PLATFORM "win32")
-endif()
+#
+# TARGET (default): server
+#
+set(SERVER_TARGET server)
 
-# TARGET: default
-add_executable(default)
-target_sources(
-    default PRIVATE
-        src/main.cpp
-        src/echoserver.cpp
-        src/server.cpp
-        src/client.cpp
-        src/${MD_PLATFORM}/utils.cpp
+add_executable(${SERVER_TARGET})
+target_sources(${SERVER_TARGET} PRIVATE
+    main.cpp
+    echoserver.cpp
+    server.cpp
+    client.cpp
 )
-
-target_compile_features(default PRIVATE cxx_std_20)
 
 # LibJPEG-Turbo
 if(LINUX)
@@ -34,40 +28,79 @@ if(WIN32)
 endif()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(
-    GStreamer REQUIRED IMPORTED_TARGET
-        gstreamer-1.0
-        gstreamer-audio-1.0
-        gstreamer-pbutils-1.0
+pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
+    gstreamer-1.0
+    gstreamer-audio-1.0
+    gstreamer-pbutils-1.0
 )
 
 # Boost
-if (WIN32)
+if(WIN32)
     list(APPEND CMAKE_PREFIX_PATH "C:\\Program Files\\boost_1_90_0")
 endif()
 find_package(Boost REQUIRED)
 
-target_include_directories(default PRIVATE ${Boost_INCLUDE_DIRS})
+target_include_directories(${SERVER_TARGET} PRIVATE ${Boost_INCLUDE_DIRS})
 
-target_link_libraries(default PRIVATE
-    monidroid-common
-    libjpeg-turbo::turbojpeg
-    PkgConfig::GStreamer
+target_link_libraries(${SERVER_TARGET}
+    PRIVATE
+        monidroid-common
+        libjpeg-turbo::turbojpeg
+        PkgConfig::GStreamer
+)
+
+if(WIN32)
+target_link_libraries(${SERVER_TARGET}
+    PRIVATE
+        monidroid-win32
+)
+elseif(LINUX)
+target_link_libraries(${SERVER_TARGET}
+    PRIVATE
+        monidroid-linux
+)
+endif()
+
+#
+# TARGET (default): Linux library
+#
+add_library(monidroid-linux)
+
+target_sources(monidroid-linux
+    PRIVATE
+        linux/evdi.cpp
+    
+    PUBLIC
+        FILE_SET HEADERS
+        FILES
+            native.h
 )
 
 # EVDI library
-if(LINUX)
-    find_library(evdi libevdi.so)
-    
-    target_link_libraries(default PRIVATE
+find_library(evdi libevdi.so)
+
+target_link_libraries(monidroid-linux
+    PUBLIC
         evdi
-    )
-endif()
+        monidroid-common
+)
 
-# TARGET: test
-add_executable(test ${CMAKE_CURRENT_LIST_DIR}/playground/ooo.cpp)
+#
+# TARGET (default): Windows library
+#
+add_library(monidroid-win32)
 
-target_compile_features(test PRIVATE cxx_std_20)
+target_sources(monidroid-win32
+    PRIVATE
+        win32/iddcx.cpp
 
-target_link_libraries(test PRIVATE evdi PkgConfig::GStreamer)
+    PUBLIC
+        FILE_SET HEADERS
+        FILES
+            native.h
+)
 
+target_link_libraries(monidroid-win32
+    PUBLIC
+        monidroid-common
+)

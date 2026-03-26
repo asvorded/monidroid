@@ -9,7 +9,7 @@
 #include <gst/gst.h>
 
 #include "monidroid.h"
-#include "logger.h"
+#include "monidroid/logger.h"
 
 const unsigned char Client::MD_EDID[128] = {
     0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,

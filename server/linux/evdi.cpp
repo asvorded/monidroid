@@ -1,15 +1,15 @@
-#include "utils.h"
+#include "native.h"
 
 #include <evdi_lib.h>
 
 #include <stdexcept>
 #include <fstream>
 
-#include "logger.h"
+#include "monidroid/logger.h"
 
 static constexpr auto EVDI_HEALTH_CHECK_PATH = "/sys/devices/evdi/version";
 
-void evdiHealthCheck() {
+void videoHealthCheck() noexcept(false) {
     std::ifstream vf(EVDI_HEALTH_CHECK_PATH);
     if (!vf) {
         // Load maybe?

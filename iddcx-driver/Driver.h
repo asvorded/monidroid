@@ -3,7 +3,7 @@
 #pragma warning(disable: 4471, justification: "C4471 appears when driver is compiled with C++20 standard")
 
 #include <monidroid.h>
-#include <monidroid/iddcx.h>
+#include "iddcx.h"
 
 #include <array>
 #include <memory>

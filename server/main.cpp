@@ -7,14 +7,10 @@
 
 #include <monidroid.h>
 
+#include "monidroid/logger.h"
 #include "echoserver.h"
-#include "logger.h"
 #include "server.h"
-#ifdef __linux__
-#include "linux/utils.h"
-#else
-#include "win32/utils.h"
-#endif
+#include "native.h"
 
 static void usage() {
     std::cout <<
@@ -33,6 +29,8 @@ static void usage() {
 #endif
     ;
 }
+
+using namespace Monidroid;
 
 int main(int argc, char *argv[]) {
     bool runAsService = true;
@@ -60,12 +58,8 @@ int main(int argc, char *argv[]) {
 
     Monidroid::DefaultLog("GStreamer version: {}.{}.{}.{}", major, minor, micro, nano);
 
-#ifdef __linux__
-    // EVDI health check
-    evdiHealthCheck();
-#else
-    iddcxHealthCheck();
-#endif
+    // Video adapter health check
+    videoHealthCheck();
 
     boost::asio::io_context context;
     

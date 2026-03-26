@@ -1,7 +1,7 @@
 #include "server.h"
 
-#include <monidroid.h>
-#include "logger.h"
+#include "monidroid.h"
+#include "monidroid/logger.h"
 
 Server::Server(boost::asio::io_context &context) : m_acceptor(context) {}
 

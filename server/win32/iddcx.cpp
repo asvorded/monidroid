@@ -1,10 +1,9 @@
-#include "utils.h"
+#include "native.h"
 
 #include <windows.h>
 #include <swdevice.h>
 
-#include <monidroid/iddcx.h>
-#include <monidroid/logger.h>
+#include "monidroid/logger.h"
 
 static constexpr int MAX_RETRIES = 5;
 
@@ -63,7 +62,7 @@ HRESULT CreateVirtualAdapter() {
     return S_OK;
 }
 
-void iddcxHealthCheck() {
+void videoHealthCheck() noexcept(false) {
 	HANDLE hAdapter;
 
 	bool manuallyCreated = false;
