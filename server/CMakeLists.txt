@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(monidroid-server)
+cmake_policy(SET CMP0167 NEW)
 
 #
 # TARGET (default): server
@@ -50,57 +50,65 @@ target_link_libraries(${SERVER_TARGET}
 )
 
 if(WIN32)
-target_link_libraries(${SERVER_TARGET}
-    PRIVATE
-        monidroid-win32
-)
+
 elseif(LINUX)
-target_link_libraries(${SERVER_TARGET}
-    PRIVATE
-        monidroid-linux
-)
 endif()
 
-#
-# TARGET (default): Linux library
-#
-add_library(monidroid-linux)
+if(LINUX)
+    #
+    # TARGET (default): Linux library
+    #
+    add_library(monidroid-linux)
 
-target_sources(monidroid-linux
-    PRIVATE
-        linux/evdi.cpp
-    
-    PUBLIC
-        FILE_SET HEADERS
-        FILES
-            native.h
-)
+    target_sources(monidroid-linux
+        PRIVATE
+            linux/evdi.cpp
+        
+        PUBLIC
+            FILE_SET HEADERS
+            FILES
+                native.h
+    )
 
-# EVDI library
-find_library(evdi libevdi.so)
+    # EVDI library
+    find_library(evdi libevdi.so)
 
-target_link_libraries(monidroid-linux
-    PUBLIC
-        evdi
-        monidroid-common
-)
+    target_link_libraries(monidroid-linux
+        PUBLIC
+            evdi
+            monidroid-common
+    )
 
-#
-# TARGET (default): Windows library
-#
-add_library(monidroid-win32)
+    target_link_libraries(${SERVER_TARGET}
+        PRIVATE
+            monidroid-linux
+    )
+elseif(WIN32)
+    #
+    # TARGET (default): Windows library
+    #
+    add_library(monidroid-win32)
 
-target_sources(monidroid-win32
-    PRIVATE
-        win32/iddcx.cpp
+    target_sources(monidroid-win32
+        PRIVATE
+            win32/iddcx.cpp
 
-    PUBLIC
-        FILE_SET HEADERS
-        FILES
-            native.h
-)
+        PUBLIC
+            FILE_SET HEADERS
+            FILES
+                native.h
+    )
 
-target_link_libraries(monidroid-win32
-    PUBLIC
-        monidroid-common
-)
+    target_link_libraries(monidroid-win32
+        PRIVATE
+            monidroid-iddcx
+
+        PUBLIC
+            monidroid-common
+    )
+
+    target_link_libraries(${SERVER_TARGET}
+        PRIVATE
+            monidroid-win32
+    )
+endif()

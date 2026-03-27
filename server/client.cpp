@@ -10,6 +10,7 @@
 
 #include "monidroid.h"
 #include "monidroid/logger.h"
+#include "monidroid/edid.h"
 
 const unsigned char Client::MD_EDID[128] = {
     0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,
@@ -93,9 +94,16 @@ int Client::connectMonitor() {
     m_devNumber = 0;
     while (evdi_check_device(m_devNumber) != AVAILABLE) m_devNumber++;
 
+    // Prepare EDID
+    Monidroid::EDID edid = Monidroid::CUSTOM_EDID;
+    edid.checksum = Monidroid::edidChecksum(edid);
+
     // Connect monitor
     m_handle = evdi_open(m_devNumber);
-    evdi_connect(m_handle, MD_EDID, sizeof(MD_EDID), m_width * m_height);
+    evdi_connect(m_handle,
+        reinterpret_cast<const unsigned char *>(&edid), sizeof(edid),
+        m_width * m_height
+    );
 
     // Set up buffer
     allocFrameBuffer(m_width, m_height);

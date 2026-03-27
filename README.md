@@ -12,7 +12,7 @@ Turn your mobile device into second monitor on any platform!
 
 Necessary dependencies:
 - `pkg-config` (**Windows:** `winget install bloodrock.pkg-config-lite`)
-- `boost`: `Asio`
+- `boost`: `Asio`, `Test`
 - `libjpeg-turbo`
 - `gstreamer` (**Windows:** set `GSTREAMER_ROOT_X86_64` environment variable after installation)
 - `evdi`
