@@ -6,24 +6,24 @@ static const IndirectMonitorInfo::IndirectMonitorMode SAMPLE_MONITOR_MODES[] = {
     { 640, 480, 60 }
 };
 
-static const IndirectMonitorInfo SAMPLE_MONITOR_INFO = {
-    // Modified EDID from Dell S2719DGF
-    {
-        0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x10,0xAC,0xE6,0xD0,0x55,0x5A,0x4A,0x30,0x24,0x1D,0x01,
-        0x04,0xA5,0x3C,0x22,0x78,0xFB,0x6C,0xE5,0xA5,0x55,0x50,0xA0,0x23,0x0B,0x50,0x54,0x00,0x02,0x00,
-        0xD1,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x58,0xE3,0x00,
-        0xA0,0xA0,0xA0,0x29,0x50,0x30,0x20,0x35,0x00,0x55,0x50,0x21,0x00,0x00,0x1A,0x00,0x00,0x00,0xFF,
-        0x00,0x37,0x4A,0x51,0x58,0x42,0x59,0x32,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,0x00,
-        0x53,0x32,0x37,0x31,0x39,0x44,0x47,0x46,0x0A,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFD,0x00,0x28,
-        0x9B,0xFA,0xFA,0x40,0x01,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x2C
-    },
-    {
-        { 2560, 1440,  60 },
-        { 1920, 1080,  60 },
-        { 1024,  768,  60 },
-    },
-    0
-};
+//static const IndirectMonitorInfo SAMPLE_MONITOR_INFO = {
+//    // Modified EDID from Dell S2719DGF
+//    {
+//        0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x10,0xAC,0xE6,0xD0,0x55,0x5A,0x4A,0x30,0x24,0x1D,0x01,
+//        0x04,0xA5,0x3C,0x22,0x78,0xFB,0x6C,0xE5,0xA5,0x55,0x50,0xA0,0x23,0x0B,0x50,0x54,0x00,0x02,0x00,
+//        0xD1,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x58,0xE3,0x00,
+//        0xA0,0xA0,0xA0,0x29,0x50,0x30,0x20,0x35,0x00,0x55,0x50,0x21,0x00,0x00,0x1A,0x00,0x00,0x00,0xFF,
+//        0x00,0x37,0x4A,0x51,0x58,0x42,0x59,0x32,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,0x00,
+//        0x53,0x32,0x37,0x31,0x39,0x44,0x47,0x46,0x0A,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFD,0x00,0x28,
+//        0x9B,0xFA,0xFA,0x40,0x01,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x2C
+//    },
+//    {
+//        { 2560, 1440,  60 },
+//        { 1920, 1080,  60 },
+//        { 1024,  768,  60 },
+//    },
+//    0
+//};
 
 /*
 * ----- Helper functions
@@ -170,7 +170,7 @@ NTSTATUS EvtIddDriverDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     // Register I/O control
     config.EvtIddCxDeviceIoControl = EvtIddCxDeviceIoControl;
 
-    config.EvtIddCxParseMonitorDescription = EvtIddCxParseMonitorDescription;
+    //config.EvtIddCxParseMonitorDescription = EvtIddCxParseMonitorDescription;
     config.EvtIddCxAdapterCommitModes = EvtIddCxAdapterCommitModes;
 
     config.EvtIddCxMonitorGetDefaultDescriptionModes = EvtIddCxMonitorGetDefaultDescriptionModes;
@@ -346,20 +346,22 @@ NTSTATUS EvtIddCxAdapterInitFinished(
 /// <summary>
 /// Called by OS to ask the driver to parse a EDID monitor description
 /// into a list of modes that the monitor supports if monitor had provided an EDID block.
+/// 
+/// NOTE: Assume that Windows will parse EDID itself and there is no need in my own callback
 /// </summary>
 NTSTATUS EvtIddCxParseMonitorDescription(
     const IDARG_IN_PARSEMONITORDESCRIPTION* pInArgs,
     IDARG_OUT_PARSEMONITORDESCRIPTION* pOutArgs
 ) {
-    pOutArgs->MonitorModeBufferOutputCount = IndirectMonitorInfo::szModeList;
+    //pOutArgs->MonitorModeBufferOutputCount = IndirectMonitorInfo::szModeList;
 
-    if (pInArgs->MonitorModeBufferInputCount < IndirectMonitorInfo::szModeList) {
-        return (pInArgs->MonitorModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
-    } else {
+    //if (pInArgs->MonitorModeBufferInputCount < IndirectMonitorInfo::szModeList) {
+    //    return (pInArgs->MonitorModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
+    //} else {
 
-    }
+    //}
 
-    return STATUS_SUCCESS;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 /// <summary>
@@ -480,7 +482,7 @@ NTSTATUS AdapterContext::Init() {
     // Telemetry
     adapterCaps.EndPointDiagnostics.Size = sizeof(adapterCaps.EndPointDiagnostics);
     adapterCaps.EndPointDiagnostics.TransmissionType = IDDCX_TRANSMISSION_TYPE_WIRED_OTHER;
-    adapterCaps.EndPointDiagnostics.GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE;
+    adapterCaps.EndPointDiagnostics.GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_HARDWARE;
 
     adapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"<hidden>";
     adapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"<hidden>";
@@ -533,12 +535,13 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
 
     monitorInfo.MonitorDescription.Size = sizeof(monitorInfo.MonitorDescription);
 
-    unsigned char edid[sizeof(Monidroid::EDID)];
-    std::copy_n(Monidroid::EDID, sizeof(edid), edid);
+    auto edid = Monidroid::CUSTOM_EDID;
+    edid.setDefaultMode(pMonitorInfo->width, pMonitorInfo->height, pMonitorInfo->hertz);
+    edid.commit();
 
     monitorInfo.MonitorDescription.Type = IDDCX_MONITOR_DESCRIPTION_TYPE_EDID;
     if (edidProvided) {
-        monitorInfo.MonitorDescription.pData = (PVOID)edid;
+        monitorInfo.MonitorDescription.pData = edid.raw();
         monitorInfo.MonitorDescription.DataSize = sizeof(edid);
     } else {
         monitorInfo.MonitorDescription.pData = NULL;
@@ -771,7 +774,7 @@ DWORD WINAPI MonitorContext::MyThreadProc(LPVOID pContext) {
 
 HRESULT MonitorContext::ProcessorFunc() {
     DWORD taskIndex = 0;
-    HANDLE avTaskHandle = AvSetMmThreadCharacteristicsW(L"Distribution", &taskIndex);
+    //HANDLE avTaskHandle = AvSetMmThreadCharacteristicsW(L"Distribution", &taskIndex);
 
     HRESULT hr = ProcessorMain();
 
@@ -780,7 +783,7 @@ HRESULT MonitorContext::ProcessorFunc() {
     WdfObjectDelete(swapChain);
     swapChain = nullptr;
 
-    AvRevertMmThreadCharacteristics(avTaskHandle);
+    //AvRevertMmThreadCharacteristics(avTaskHandle);
     return hr;
 }
 

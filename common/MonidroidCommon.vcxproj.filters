@@ -18,5 +18,8 @@
     <ClInclude Include="monidroid.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="monidroid\edid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

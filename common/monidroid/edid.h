@@ -86,7 +86,7 @@ namespace Monidroid {
         void setDefaultMode(int width, int height, int hertz) {
             double vFieldRate = hertz * (1 + 350 / 1'000'000.0); // ver.3: +350 ppm
             double hPeriodEst = (1'000'000.0 / vFieldRate - EDID_MIN_V_BLANK_US) / height;
-            u32 vbiLines = ceil(EDID_MIN_V_BLANK_US / hPeriodEst);
+            u32 vbiLines = (u32)ceil(EDID_MIN_V_BLANK_US / hPeriodEst);
             u32 rbMinVbi = 1 + EDID_V_SYNC + EDID_V_BACK;
             
             u32 vBlank = vbiLines < rbMinVbi ? rbMinVbi : vbiLines;
@@ -122,8 +122,12 @@ namespace Monidroid {
             for (int i = 0; i < sizeof(*this) - 1; ++i) {
                 sum += raw[i];
             }
-            u16 round = (sum + 0x100) & ~0xFF;
-            checksum = round - sum;
+            u32 round = (sum + 0x100) & ~0xFF;
+            checksum = (u8)(round - sum);
+        }
+
+        void* raw() {
+            return reinterpret_cast<void*>(this);
         }
     };
     
@@ -160,20 +164,20 @@ namespace Monidroid {
             .myTimings = 0,
         },
         .standardTimings {
-            [0] = {                                          // 1920 x 1080 @ 60
+            {                                          // 1920 x 1080 @ 60
                 .hPixels = (1920 / 8) - 31,
                 .ar_refreshRate = (0b11 << 6) | (60 - 60),   // 16 : 9                            
             },
-            [1] = { 0x01, 0x01 },
-            [2] = { 0x01, 0x01 },
-            [3] = { 0x01, 0x01 },
-            [4] = { 0x01, 0x01 },
-            [5] = { 0x01, 0x01 },
-            [6] = { 0x01, 0x01 },
-            [7] = { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
+            { 0x01, 0x01 },
         },
         .dataBlocks {
-            [0] = {                          // Mobile device screen's timings
+            {                          // Mobile device screen's timings
                 .timing {
                     .pixel_clock = (2400 + EDID_H_BLANK) * (1500 + 67) * 60u / 10'000,
                     .hactive_lo = 2400 & 0xFFu,
@@ -194,14 +198,14 @@ namespace Monidroid {
                     .misc = 0b0'00'1111'0    // non-interlaced, no stereo, digital separate sync, +hsync, +vsync
                 }
             },                       
-            [1] = {
+            {
                 .desc {
                     .tag = 0xFC,             // Display Product Name
                     .data = { 'M', 'o', 'n', 'i', 'd', 'r', 'o', 'i', 'd', '\n', ' ', ' ', ' ' }
                 }
             },
-            [2] = { .desc { .tag = 0x10 } }, // Dummy descriptor
-            [3] = { .desc { .tag = 0x10 } }, // Dummy descriptor
+            { .desc { .tag = 0x10 } }, // Dummy descriptor
+            { .desc { .tag = 0x10 } }, // Dummy descriptor
         },
         .extCount = 0,
         .checksum = 0,

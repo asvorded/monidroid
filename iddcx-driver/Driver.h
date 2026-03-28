@@ -2,20 +2,18 @@
 
 #pragma warning(disable: 4471, justification: "C4471 appears when driver is compiled with C++20 standard")
 
-#include <monidroid.h>
-#include "iddcx.h"
-
 #include <array>
 #include <memory>
 
+#include <Windows.h>
 #include <wdf.h>
 #include <bugcodes.h>
 #include <IddCx.h>
-#include <Windows.h>
 #include <wrl.h>
-#include <WinSock2.h>
-#include <wincodec.h>
-#include <avrt.h>
+
+#include "monidroid.h"
+#include "monidroid/edid.h"
+#include "iddcx.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -30,7 +28,7 @@ struct AdapterContext {
 
     NTSTATUS Init();
 
-    NTSTATUS ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided = false);
+    NTSTATUS ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided = true);
     NTSTATUS DisconnectMonitor(ADAPTER_MONITOR_INFO* monitorInfo);
 
     NTSTATUS FrameRequest(FRAME_MONITOR_INFO* pFrameInfo);
