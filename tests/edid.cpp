@@ -23,7 +23,25 @@ BOOST_AUTO_TEST_CASE(ChecksumTest) {
         0x2C
     };
 
-    u8 cs = edidChecksum(*reinterpret_cast<const EDID *>(edid));
+    EDID myEdid = *reinterpret_cast<EDID *>(edid);
+    myEdid.commit();
 
-    BOOST_ASSERT(cs == edid[127]);
+    BOOST_ASSERT(myEdid.checksum == edid[127]);
+}
+
+BOOST_AUTO_TEST_CASE(EdidOutputTest) {
+    EDID myEdid = Monidroid::CUSTOM_EDID;
+    myEdid.setDefaultMode(1920, 1080, 120);
+    myEdid.commit();
+
+    const Monidroid::u8 *raw = reinterpret_cast<const Monidroid::u8 *>(&myEdid);
+
+    std::ofstream f("lul.txt");
+
+    f << std::hex << std::setfill('0') << std::uppercase;
+
+    int i = 0;
+    while (i < 128) {
+        f << "0x" << std::setw(2) << static_cast<int>(raw[i++]) << ',';
+    }
 }

@@ -1,9 +1,20 @@
 #pragma once
 
+#include <cmath>
+
 namespace Monidroid {
     using u8 = unsigned char;
     using u16 = unsigned short;
     using u32 = unsigned int;
+
+    inline constexpr auto EDID_H_BLANK = 80u;
+    inline constexpr auto EDID_H_FRONT = 8u;
+    inline constexpr auto EDID_H_SYNC  = 32u;
+
+    inline constexpr auto EDID_MIN_V_BLANK_US = 460u;
+
+    inline constexpr auto EDID_V_SYNC  = 8u;
+    inline constexpr auto EDID_V_BACK  = 6u;
     
     struct EDID {
         u8 header[8];
@@ -71,71 +82,57 @@ namespace Monidroid {
         } dataBlocks[4];
         u8 extCount;
         u8 checksum;
+
+        void setDefaultMode(int width, int height, int hertz) {
+            double vFieldRate = hertz * (1 + 350 / 1'000'000.0); // ver.3: +350 ppm
+            double hPeriodEst = (1'000'000.0 / vFieldRate - EDID_MIN_V_BLANK_US) / height;
+            u32 vbiLines = ceil(EDID_MIN_V_BLANK_US / hPeriodEst);
+            u32 rbMinVbi = 1 + EDID_V_SYNC + EDID_V_BACK;
+            
+            u32 vBlank = vbiLines < rbMinVbi ? rbMinVbi : vbiLines;
+            u32 vOffset = vBlank - EDID_V_BACK - EDID_V_SYNC;
+            
+            dataBlocks[0].timing = {
+                .pixel_clock = (u16)((width + EDID_H_BLANK) * (height + vBlank) * hertz / 10'000),
+                .hactive_lo = (u8)(width & 0xFFu),
+                .hblank_lo = EDID_H_BLANK,
+                .hactive_hblank_hi = (u8)(((width & 0x0F00u) >> 4) | ((EDID_H_BLANK & 0x0F00u) >> 8)),
+                .vactive_lo = (u8)(height & 0xFFu),
+                .vblank_lo = (u8)(vBlank),
+                .vactive_vblank_hi = (u8)(((height & 0x0F00u) >> 4) | ((vBlank & 0x0F00u) >> 8)),
+                .hsync_offset_lo = EDID_H_FRONT & 0xFFu,
+                .hsync_width_lo = EDID_H_SYNC & 0xFFu,
+                .vsync_offset_width_lo = (u8)(((vOffset & 0x0Fu) << 4) | (EDID_V_SYNC & 0x0Fu)),
+                .hsync_vsync_offset_width_hi = (u8)(((EDID_H_FRONT & 0x300u) >> 2)
+                                                  | ((EDID_H_SYNC & 0x300u) >> 4)
+                                                  | ((vOffset & 0x30u) >> 2)
+                                                  | ((EDID_V_SYNC & 0x30u) >> 4)),
+                .width_mm_lo = 0,
+                .height_mm_lo = 0,
+                .width_height_mm_hi = 0,
+                .hborder = 0,
+                .vborder = 0,
+                .misc = 0b0'00'1111'0    // non-interlaced, no stereo, digital separate sync, +hsync, +vsync
+            };
+        }
+
+        void commit() {
+            auto *raw = reinterpret_cast<const u8*>(this);
+            unsigned int sum = 0;
+            for (int i = 0; i < sizeof(*this) - 1; ++i) {
+                sum += raw[i];
+            }
+            u16 round = (sum + 0x100) & ~0xFF;
+            checksum = round - sum;
+        }
     };
     
     static_assert(sizeof(EDID) == 128);
 
-    inline u8 edidChecksum(const EDID &edid) {
-        auto *raw = reinterpret_cast<const u8*>(&edid);
-        unsigned int sum = 0;
-        for (int i = 0; i < sizeof(edid) - 1; ++i) {
-            sum += raw[i];
-        }
-        u16 round = (sum + 0x100) & ~0xFF;
-        return round - sum;
-    }
-
-    inline constexpr u8 CUSTOM_RAW_EDID[128] = {
-        0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,
-
-        0b0'0110100,0b100'00100,        // Manufacturer ID := MDD => 13, 4, 4 => 0 01101, 00100, 00100
-        0x00,0x00,                      // Product ID (unspecified)
-        0x00,0x00,0x00,0x00,            // Serial number (unspecified)
-        0x00,0x24,                      // Week, year of manufacture (week := -, year := 2026 => 2026 - 1990 = 36 => 0x24)
-
-        0x01,0x04,                      // EDID version := 1.4
-
-        0b1'000'0000,                   // Video Input Definition := digital, no color depth, no digital interface
-        0x00,0x00,                      // Screen Size/Aspect Ratio := no size specified
-        0x00,                           // Gamma := 1.00
-        0b000'11'100,                   // Feature Support := DPM-compliant, all color formats (bit 7 at 14h is '1'),
-                                        // TODO: Bit 1,
-                                        // non-continuous frequency
-
-        0x6C,0xE5,                      // Red / Green, Blue / White
-        0xA5,0x55,                      // Red x,y
-        0x50,0xA0,                      // Green x,y
-        0x23,0x0B,                      // Blue x,y
-        0x50,0x54,                      // White point x,y
-
-        0b00100001,0b00001000,0x00,     // Established timings: 1 := 640 x 480 @ 60, 800 x 600 @ 60; 2 := 1024 x 768 @ 60
-        
-        0xD1,0xC0,                      // 1 standard timing := 1920 x 1080 @ 60
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-        0x01,0x01,                      // no standard timing
-
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, // 1 18-byte block: reserved for mobile device
-
-        0x00,0x00,0x00,                 // 2 18-byte block: Display descriptor
-        0xFC,                           // Display Product Name
-        0x00,                           // Reserved
-         'M', 'o', 'n', 'i', 'd', 'r', 'o', 'i', 'd', '\n', ' ', ' ', ' ',
-
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-        0x00,
-        0x00                            // Checksum
-    };
-
     inline constexpr EDID CUSTOM_EDID {
         .header = { 0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00 },
         .vendor {
-            .manufacturerId = { 0b0'01101'00,0b100'11010 },  // MDZ => 13, 4, 26 => 0 (must be '0'), 01101, 00100, 11010
+            .manufacturerId = { 0b0'01101'00,0b100'10001 },  // MDQ => 13, 4, 17 => 0 (must be '0'), 01101, 00100, 10001
             .productId = { 0x00, 0x00 },
             .serial = { 0x00, 0x00, 0x00, 0x00 },
             .week = 0, .year = 2026 - 1990,                  // 2026
@@ -144,8 +141,9 @@ namespace Monidroid {
         .features {
             .inputDef = 0b1'000'0000,                        // digital, no color depth, no digital interface
             .hSize = 0, .vSize = 0,                          // no size specified
-            .gamma = 0x00,                                   // 1.00
-            .features = 0b000'11'110,                        // DPM-compliant, all color formats (bit 7 at 14h is '1'), 
+            .gamma = 220 - 100,                              // 2.20
+            .features = 0b000'11'010,                        // DPM-compliant, all color formats (bit 7 at 14h is '1'), 
+                                                             // non sRGB
                                                              // pref. timing mode contains pixel format and refresh rate
                                                              // non-continuous frequency
         },
@@ -177,17 +175,17 @@ namespace Monidroid {
         .dataBlocks {
             [0] = {                          // Mobile device screen's timings
                 .timing {
-                    .pixel_clock = 2400 * 1500 * 60 / 10'000,
+                    .pixel_clock = (2400 + EDID_H_BLANK) * (1500 + 67) * 60u / 10'000,
                     .hactive_lo = 2400 & 0xFFu,
-                    .hblank_lo = 0,
-                    .hactive_hblank_hi = ((2400 & 0x0F00u) >> 4) | ((0 & 0x0F00u) >> 8),
+                    .hblank_lo = EDID_H_BLANK,
+                    .hactive_hblank_hi = ((2400 & 0x0F00u) >> 4) | ((EDID_H_BLANK & 0x0F00u) >> 8),
                     .vactive_lo = 1500 & 0xFFu,
-                    .vblank_lo = 0,
-                    .vactive_vblank_hi = ((1500 & 0x0F00u) >> 4) | ((0 & 0x0F00u) >> 8),
-                    .hsync_offset_lo = 0 & 0xFFu,
-                    .hsync_width_lo = 0 & 0xFFu,
-                    .vsync_offset_width_lo = ((0 & 0x0Fu) << 4) | (0 & 0x0Fu),
-                    .hsync_vsync_offset_width_hi = ((0 & 0x30u) << 6) | ((0 & 0x30u) << 4) | ((0 & 0x30u) << 2) | (0 & 0x30u),
+                    .vblank_lo = 67,
+                    .vactive_vblank_hi = ((1500 & 0x0F00u) >> 4) | ((67 & 0x0F00u) >> 8),
+                    .hsync_offset_lo = EDID_H_FRONT & 0xFFu,
+                    .hsync_width_lo = EDID_H_SYNC & 0xFFu,
+                    .vsync_offset_width_lo = ((53 & 0x0Fu) << 4) | (8 & 0x0Fu),
+                    .hsync_vsync_offset_width_hi = ((EDID_H_FRONT & 0x300u) >> 2) | ((EDID_H_SYNC & 0x300u) >> 4) | ((53 & 0x30u) >> 2) | ((8 & 0x30u) >> 4),
                     .width_mm_lo = 0,
                     .height_mm_lo = 0,
                     .width_height_mm_hi = 0,
@@ -208,7 +206,4 @@ namespace Monidroid {
         .extCount = 0,
         .checksum = 0,
     };
-    
-    inline void setMode(EDID &edid, int width, int height, int hertz) {
-    }
 }

@@ -75,9 +75,13 @@ void Client::identifyClient() {
         case WelcomeStates::Modes:
         {
             int *settings = reinterpret_cast<int*>(m_netBuffer.data());
-            m_width = settings[0];
-            m_height = settings[1];
+            // Get multiple of 8
+            m_width = settings[0] & ~0x07;
+            m_height = settings[1] & ~0x07;
             m_hertz = settings[2];
+            if (m_width < m_height) {
+                std::swap(m_width, m_height);
+            }
 
             Monidroid::DefaultLog("New client identified as \"{}\", preferred mode: {}x{}@{}", m_modelName, m_width, m_height, m_hertz);
             
@@ -96,13 +100,15 @@ int Client::connectMonitor() {
 
     // Prepare EDID
     Monidroid::EDID edid = Monidroid::CUSTOM_EDID;
-    edid.checksum = Monidroid::edidChecksum(edid);
+    edid.setDefaultMode(m_width, m_height, m_hertz);
+    edid.commit();
 
     // Connect monitor
     m_handle = evdi_open(m_devNumber);
-    evdi_connect(m_handle,
+    evdi_connect2(m_handle,
         reinterpret_cast<const unsigned char *>(&edid), sizeof(edid),
-        m_width * m_height
+        m_width * m_height,
+        edid.dataBlocks[0].timing.pixel_clock * 10000
     );
 
     // Set up buffer
