@@ -4,45 +4,36 @@
 #include <vector>
 #include <string>
 
-#include <evdi_lib.h>
+#include "native.h"
 
 #include <boost/asio.hpp>
 
 using namespace boost::asio;
 
+enum class ClientState {
+    New, Identified, Connected, Streaming, Disconnected, Error
+};
+
 struct Client {
-    using ColorType = int;
+    static constexpr auto CLIENT_TAG = "Client";
 
 public:
     ip::tcp::socket m_socket;
     std::vector<char> m_netBuffer;
     bool m_sending = false;
 
-    int m_width = -1;
-    int m_height = -1;
-    int m_hertz = -1;
-
+    MonitorMode m_preffered;
     std::string m_modelName;
+    ClientState m_state = ClientState::New;
 
-    evdi_handle m_handle = EVDI_INVALID_HANDLE;
-    int m_devNumber = 0;
-
-    evdi_buffer m_frameBufferInfo;
-    std::vector<ColorType> m_frameBuffer;
+    Monitor m_monitor;
 
     std::thread m_communicationThread; // ???
 
-    static const unsigned char MD_EDID[128];
-    static constexpr auto SKU_AREA_LIMIT = 60;
+    void allocFrameBuffer(int width, int height);
+    void initPipeline();
 
-    int allocFrameBuffer(int width, int height);
-    int initPipeline();
-
-    int grabAndSend(int bufferId);
-
-    static void dpmsHandler(int dpms_mode, void *user_data);
-    static void modeHandler(struct evdi_mode mode, void *user_data);
-    static void updateHandler(int buffer_to_be_updated, void *user_data);
+    void grabAndSend(const std::unique_ptr<ColorType[]>& frameData, const int dataPixSize);
 
 public:
     Client(ip::tcp::socket socket);
@@ -50,9 +41,10 @@ public:
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;
 
-    void identifyClient();
-    int connectMonitor();
-    int sendFrames();
-    int disconnectMonitor();
-    int finalize();
+    ClientState state() const;
+    bool identifyClient();
+    bool connectMonitor(const Adapter& adapter);
+    void sendFrames();
+    void disconnectMonitor();
+    void finalize();
 };

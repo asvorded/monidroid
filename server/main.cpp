@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
     echoServer.start();
     
     Server server(context);
-    server.start();
     
     std::jthread t([&]() {
         context.run();

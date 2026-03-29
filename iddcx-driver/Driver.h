@@ -36,7 +36,7 @@ struct AdapterContext {
 private:
     struct MonitorLocalInfo {
         IDDCX_MONITOR monitorObject;
-        SOCKET monitorNumberBySocket;
+        //SOCKET monitorNumberBySocket;
     } connectedMonitors[MAX_MONITOR_COUNT];
 
     WDFDEVICE device;
@@ -58,17 +58,6 @@ public:
     void Stop();
 
 private:
-    static constexpr int FEATURE_LEVELS_COUNT = 7;
-    D3D_FEATURE_LEVEL FeatureLevels[FEATURE_LEVELS_COUNT] = {
-        D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
-        D3D_FEATURE_LEVEL_9_3,
-        D3D_FEATURE_LEVEL_9_2,
-        D3D_FEATURE_LEVEL_9_1,
-    };
-
     LUID m_adapterLuid;
     IDDCX_SWAPCHAIN m_swapChain;
     HANDLE m_hNewFrameEvent;
@@ -111,17 +100,6 @@ private:
     static DWORD WINAPI MyThreadProc(LPVOID pContext);
     HRESULT ProcessorFunc();
     HRESULT ProcessorMain();
-
-    static constexpr int FEATURE_LEVELS_COUNT = 7;
-    D3D_FEATURE_LEVEL FeatureLevels[FEATURE_LEVELS_COUNT] = {
-        D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
-        D3D_FEATURE_LEVEL_9_3,
-        D3D_FEATURE_LEVEL_9_2,
-        D3D_FEATURE_LEVEL_9_1,
-    };
 
     struct __info {
         IDDCX_MONITOR monitorObject;

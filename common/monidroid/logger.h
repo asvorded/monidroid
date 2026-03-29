@@ -32,8 +32,8 @@ namespace Monidroid {
         auto systemNow = std::chrono::system_clock::now();
         auto now = std::chrono::floor<std::chrono::seconds>(systemNow);
 
-        std::cout
-            << std::format("[{}, {}] ", now, tag)
+        std::wcout
+            << std::format(L"[{}, {}] ", now, tag)
             << std::format(fmt, std::forward<Args>(args)...)
             << std::endl;
     }

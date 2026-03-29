@@ -3,42 +3,41 @@
 #include "monidroid.h"
 #include "monidroid/logger.h"
 
-Server::Server(boost::asio::io_context &context) : m_acceptor(context) {}
+constexpr auto TAG = "Server";
 
-Server::~Server() {
-    stop();
-}
-
-void Server::start() {
-    if (m_started) return;
-
-    auto executor = m_acceptor.get_executor();
+Server::Server(boost::asio::io_context &context)
+    : m_acceptor(context)
+{
     auto endpoint = ip::tcp::endpoint(ip::tcp::v4(), Monidroid::MONIDROID_PORT);
-    m_acceptor = ip::tcp::acceptor(executor, endpoint);
+    m_acceptor.bind(endpoint);
 
-    // m_thread = std::thread([this]() { serverMain(); });
+    m_adapter = openAdapter();
+    if (!m_adapter) {
+        throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter");
+    }
+
     serverMainAsync();
 
-    m_started = true;
-    Monidroid::TaggedLog("Server", "Server started");
+    m_running = true;
+    Monidroid::TaggedLog(TAG, "Server started");
 }
 
-void Server::stop() {
-    if (!m_started) return;
-
+Server::~Server() {
     m_acceptor.close();
     
     if (m_thread.joinable()) {
         m_thread.join();
     }
-
-    m_started = false;
-    
+        
     Monidroid::TaggedLog("Server", "Server stopped");
 }
 
+bool Server::running() const {
+    return m_running;
+}
+
 void Server::serverMain() {
-    while (m_started) {
+    while (m_running) {
         boost::system::error_code ec;
 
         auto clientSocket = m_acceptor.accept(ec);
@@ -58,12 +57,13 @@ void Server::serverMain() {
 }
 
 void Server::serverMainAsync() {
+    // TODO: ensure proper `this` lifetime
     m_acceptor.async_accept([this](const boost::system::error_code &ec, ip::tcp::socket clientSocket) {
         if (!ec) {
             auto client = std::make_shared<Client>(std::move(clientSocket));
             
             // TODO: make list of clients
-            client->m_communicationThread = std::thread([client]() {
+            client->m_communicationThread = std::thread([this, client]() {
                 communicationMain(client);
             });
             client->m_communicationThread.detach();
@@ -71,6 +71,7 @@ void Server::serverMainAsync() {
             serverMainAsync();
         } else {
             Monidroid::TaggedLog("Server", "Ended accepting connections (message: {})", ec.message());
+            m_running = false;
         }
     });
 }
@@ -82,13 +83,13 @@ void Server::communicationMain(std::shared_ptr<Client> client) {
     client->identifyClient();
 
     // 2. Connect monitor
-    int code = client->connectMonitor();
+    client->connectMonitor(m_adapter);
 
     // 3. Send frames
-    code = client->sendFrames();
+    client->sendFrames();
     
     // 4. Disconnect monitor
-    code = client->disconnectMonitor();
+    client->disconnectMonitor();
 
     // 5. Finalize
     client->finalize();

@@ -249,8 +249,6 @@ NTSTATUS EvtDeviceD0Exit(WDFDEVICE Device, WDF_POWER_DEVICE_STATE TargetState) {
     UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(TargetState);
 
-    WSACleanup();
-
     return STATUS_SUCCESS;
 }
 
@@ -462,7 +460,7 @@ NTSTATUS EvtIddCxMonitorUnassignSwapChain(IDDCX_MONITOR MonitorObject) {
 AdapterContext::AdapterContext(WDFDEVICE Device) : device(Device), adapter() {
     for (int i = 0; i < MAX_MONITOR_COUNT; i++) {
         connectedMonitors[i].monitorObject = nullptr;
-        connectedMonitors[i].monitorNumberBySocket = INVALID_SOCKET;
+        //connectedMonitors[i].monitorNumberBySocket = INVALID_SOCKET;
     }
 }
 
@@ -521,7 +519,7 @@ NTSTATUS AdapterContext::Init() {
 NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided) {
     // Find the closest slot
     int connectorIndex = 0;
-    while (connectedMonitors[connectorIndex].monitorObject != NULL && connectorIndex < MAX_MONITOR_COUNT) connectorIndex++;
+    while (connectedMonitors[connectorIndex].monitorObject != nullptr && connectorIndex < MAX_MONITOR_COUNT) connectorIndex++;
     if (connectorIndex == MAX_MONITOR_COUNT) {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -574,7 +572,7 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
 
     // Add monitor to monitor list
     connectedMonitors[connectorIndex].monitorObject = monitorCreateOut.MonitorObject;
-    connectedMonitors[connectorIndex].monitorNumberBySocket = pMonitorInfo->monitorNumberBySocket;
+    //connectedMonitors[connectorIndex].monitorNumberBySocket = pMonitorInfo->monitorNumberBySocket;
     pMonitorInfo->connectorIndex = connectorIndex;
     pContext->pContext->SetupMonitor(pMonitorInfo);
 
@@ -600,7 +598,7 @@ NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
         return STATUS_INVALID_PARAMETER;
     }
 
-    pFrameInfo->hFrameHandle = hDriverFrame;
+    pFrameInfo->frameHandle = hDriverFrame;
 #else
     HRESULT hr = pContext->pContext->RequestFrame(pFrameInfo);
     if (FAILED(hr)) {
@@ -613,16 +611,19 @@ NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
 
 NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
     // Find slot
-    int connectorIndex = 0;
-    while (connectedMonitors[connectorIndex].monitorNumberBySocket != pMonitorInfo->monitorNumberBySocket
-        && connectorIndex < MAX_MONITOR_COUNT) connectorIndex++;
-    if (connectorIndex == MAX_MONITOR_COUNT) {
+    int connectorIndex = pMonitorInfo->connectorIndex;
+    //while (connectedMonitors[connectorIndex].monitorNumberBySocket != pMonitorInfo->monitorNumberBySocket
+    //    && connectorIndex < MAX_MONITOR_COUNT) connectorIndex++;
+    //if (connectorIndex == MAX_MONITOR_COUNT) {
+    //    return STATUS_NOT_FOUND;
+    //}
+    if (connectedMonitors[connectorIndex].monitorObject == nullptr) {
         return STATUS_NOT_FOUND;
     }
 
     IDDCX_MONITOR m = connectedMonitors[connectorIndex].monitorObject;
     connectedMonitors[connectorIndex].monitorObject = nullptr;
-    connectedMonitors[connectorIndex].monitorNumberBySocket = INVALID_SOCKET;
+    //connectedMonitors[connectorIndex].monitorNumberBySocket = INVALID_SOCKET;
 
     return IddCxMonitorDeparture(m);
 }
@@ -728,7 +729,7 @@ HRESULT MonitorContext::InitProcessor() {
 
     hr = D3D11CreateDevice(
         pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-        FeatureLevels, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice0, NULL, &pDeviceContext0
+        FEATURE_LEVELS, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice0, NULL, &pDeviceContext0
     );
     if (FAILED(hr)) {
         goto end;
@@ -937,7 +938,7 @@ MonitorProcessor::MonitorProcessor(IDDCX_SWAPCHAIN swapChain, LUID adapterLuid, 
 
     hr = D3D11CreateDevice(
         pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-        FeatureLevels, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice, NULL, &pDeviceContext
+        FEATURE_LEVELS, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice, NULL, &pDeviceContext
     );
     if (FAILED(hr)) {}
 
@@ -1006,7 +1007,7 @@ HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO &info) {
         ComPtr<IDXGIResource1> pRequestedFrame;
         pRequestedTexture->QueryInterface(IID_PPV_ARGS(&pRequestedFrame));
 
-        hr = pRequestedFrame->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &info.hFrameHandle);
+        hr = pRequestedFrame->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &info.frameHandle);
         if (SUCCEEDED(hr)) {
             info.timeStamp = bufferArgs.MetaData.PresentDisplayQPCTime;
         }

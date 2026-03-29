@@ -2,8 +2,9 @@
 
 #include <devioctl.h>
 #include <initguid.h>
+#include <d3dcommon.h>
 
-#include <WinSock2.h>
+typedef UINT_PTR SOCKET;
 
 #define MONIDROID_DEVICE_PATH					L"\\Device\\MonidroidAdapter"
 #define MONIDROID_USER_DEVICE_PATH				L"\\\\.\\GLOBALROOT\\Device\\MonidroidAdapter"
@@ -32,6 +33,17 @@ struct ADAPTER_MONITOR_INFO {
 struct FRAME_MONITOR_INFO {
     _In_ UINT connectorIndex;   // IN
 
-    _Out_ HANDLE hFrameHandle;  // OUT
+    _Out_ HANDLE frameHandle;  // OUT
     _Out_ UINT64 timeStamp;
+};
+
+const int FEATURE_LEVELS_COUNT = 7;
+const D3D_FEATURE_LEVEL FEATURE_LEVELS[FEATURE_LEVELS_COUNT] = {
+    D3D_FEATURE_LEVEL_11_1,
+    D3D_FEATURE_LEVEL_11_0,
+    D3D_FEATURE_LEVEL_10_1,
+    D3D_FEATURE_LEVEL_10_0,
+    D3D_FEATURE_LEVEL_9_3,
+    D3D_FEATURE_LEVEL_9_2,
+    D3D_FEATURE_LEVEL_9_1,
 };
