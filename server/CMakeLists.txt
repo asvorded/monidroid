@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 cmake_policy(SET CMP0167 NEW)
 
+if(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_compile_definitions(DEBUG)
+endif()
 #
 # TARGET (default): server
 #
@@ -17,7 +20,7 @@ target_sources(${SERVER_TARGET} PRIVATE
 
 # LibJPEG-Turbo
 if(LINUX)
-    set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")    
+    set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")
 endif()
 
 find_package(libjpeg-turbo REQUIRED)

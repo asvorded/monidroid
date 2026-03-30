@@ -6,11 +6,8 @@
 constexpr auto TAG = "Server";
 
 Server::Server(boost::asio::io_context &context)
-    : m_acceptor(context)
+    : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::MONIDROID_PORT))
 {
-    auto endpoint = ip::tcp::endpoint(ip::tcp::v4(), Monidroid::MONIDROID_PORT);
-    m_acceptor.bind(endpoint);
-
     m_adapter = openAdapter();
     if (!m_adapter) {
         throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter");

@@ -141,6 +141,9 @@ void videoHealthCheck() noexcept(false) {
 			GENERIC_READ | GENERIC_WRITE, 0,
 			nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
 		);
+#ifdef DEBUG
+        Monidroid::TaggedLog(HEALTH_CHECK_TAG, L"CreateFile() code: {}", GetLastError());
+#endif
         if (hAdapter != INVALID_HANDLE_VALUE) {
             Monidroid::TaggedLog(HEALTH_CHECK_TAG, L"Monidroid Graphics Adapter detected");
             CloseHandle(hAdapter);
@@ -299,7 +302,7 @@ void monitorDisconnect(Monitor& monitor) {
 
         if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_MONITOR_DISCONNECT,
             &monitorInfo, sizeof(monitorInfo), &monitorInfoOut, sizeof(monitorInfoOut), &bytesReceived, NULL)) {
-            Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to connect monitor, error code: {}", GetLastError());
+            Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to disconnect monitor, error code: {}", GetLastError());
         }
     } else {
         Monidroid::TaggedLog(MONITOR_TAG, L"Adapter is inaccessible, ignoring disconnect request...");

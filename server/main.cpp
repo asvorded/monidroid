@@ -32,7 +32,7 @@ static void usage() {
 
 using namespace Monidroid;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) try {
     bool runAsService = true;
 
     if (argc == 2) {
@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
         } else if (command == "--no-service") {
 			runAsService = false;
             Monidroid::DefaultLog("Starting as console applicaion...");
+            system("chcp 65001 > nul");
 		} else {
 			std::cout << "Unknown option. Use --help to get available options." << '\n';
             return EINVAL;
@@ -83,4 +84,7 @@ int main(int argc, char *argv[]) {
     
     context.stop();
     return 0;
+} catch (const std::runtime_error &e) {
+    Monidroid::DefaultLog("ERROR: {}", e.what());
+    return -1;
 }

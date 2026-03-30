@@ -17,6 +17,8 @@
 
 using Microsoft::WRL::ComPtr;
 
+using namespace Monidroid;
+
 /// <summary>
 /// Context for adapter object
 /// </summary>
@@ -64,7 +66,6 @@ private:
     HANDLE m_hStopEvent;
 
     ComPtr<ID3D11Device3> m_pDevice;
-    ComPtr<IDXGIDevice3> m_pSwapChainDevice;
     ComPtr<ID3D11DeviceContext3> m_pDeviceContext;
 };
 
@@ -101,13 +102,8 @@ private:
     HRESULT ProcessorFunc();
     HRESULT ProcessorMain();
 
-    struct __info {
-        IDDCX_MONITOR monitorObject;
-
-        int width;
-        int height;
-        int hertz;
-    } info;
+    IDDCX_MONITOR monitorObject;
+    MonitorMode preffered;
 
     static constexpr int MAX_FRAMES_COUNT = 16;
 

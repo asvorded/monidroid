@@ -6,25 +6,6 @@ static const IndirectMonitorInfo::IndirectMonitorMode SAMPLE_MONITOR_MODES[] = {
     { 640, 480, 60 }
 };
 
-//static const IndirectMonitorInfo SAMPLE_MONITOR_INFO = {
-//    // Modified EDID from Dell S2719DGF
-//    {
-//        0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x10,0xAC,0xE6,0xD0,0x55,0x5A,0x4A,0x30,0x24,0x1D,0x01,
-//        0x04,0xA5,0x3C,0x22,0x78,0xFB,0x6C,0xE5,0xA5,0x55,0x50,0xA0,0x23,0x0B,0x50,0x54,0x00,0x02,0x00,
-//        0xD1,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x58,0xE3,0x00,
-//        0xA0,0xA0,0xA0,0x29,0x50,0x30,0x20,0x35,0x00,0x55,0x50,0x21,0x00,0x00,0x1A,0x00,0x00,0x00,0xFF,
-//        0x00,0x37,0x4A,0x51,0x58,0x42,0x59,0x32,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,0x00,
-//        0x53,0x32,0x37,0x31,0x39,0x44,0x47,0x46,0x0A,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFD,0x00,0x28,
-//        0x9B,0xFA,0xFA,0x40,0x01,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x2C
-//    },
-//    {
-//        { 2560, 1440,  60 },
-//        { 1920, 1080,  60 },
-//        { 1024,  768,  60 },
-//    },
-//    0
-//};
-
 /*
 * ----- Helper functions
 */
@@ -170,7 +151,7 @@ NTSTATUS EvtIddDriverDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     // Register I/O control
     config.EvtIddCxDeviceIoControl = EvtIddCxDeviceIoControl;
 
-    //config.EvtIddCxParseMonitorDescription = EvtIddCxParseMonitorDescription;
+    config.EvtIddCxParseMonitorDescription = EvtIddCxParseMonitorDescription;
     config.EvtIddCxAdapterCommitModes = EvtIddCxAdapterCommitModes;
 
     config.EvtIddCxMonitorGetDefaultDescriptionModes = EvtIddCxMonitorGetDefaultDescriptionModes;
@@ -351,15 +332,42 @@ NTSTATUS EvtIddCxParseMonitorDescription(
     const IDARG_IN_PARSEMONITORDESCRIPTION* pInArgs,
     IDARG_OUT_PARSEMONITORDESCRIPTION* pOutArgs
 ) {
-    //pOutArgs->MonitorModeBufferOutputCount = IndirectMonitorInfo::szModeList;
+    const UINT modesCount = ARRAYSIZE(CUSTOM_EDID_MODES);
 
-    //if (pInArgs->MonitorModeBufferInputCount < IndirectMonitorInfo::szModeList) {
-    //    return (pInArgs->MonitorModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
-    //} else {
+    if (pInArgs->MonitorModeBufferInputCount != modesCount) {
+        pOutArgs->MonitorModeBufferOutputCount = modesCount;
+        return (pInArgs->MonitorModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
+    }
+    
+    auto &timing = ((const EDID*)(pInArgs->MonitorDescription.pData))->dataBlocks[0].timing;
+    auto vBlank = timing.vblank_lo | ((timing.vactive_vblank_hi & 0x0Fu) << 8);
 
-    //}
+    MonitorMode preferred {
+        .width  = timing.hactive_lo | ((timing.hactive_hblank_hi & 0xF0u) << 4),
+        .height = timing.vactive_lo | ((timing.vactive_vblank_hi & 0xF0u) << 4),
+        .refreshRate = (timing.pixel_clock * 10'000u) / ((preferred.width + EDID_H_BLANK) * (preferred.height + vBlank)),
+    };
 
-    return STATUS_NOT_IMPLEMENTED;
+    for (int i = 0; i < modesCount; ++i) {
+        const MonitorMode& mode = i == 0 ? preferred : Monidroid::CUSTOM_EDID_MODES[i];
+
+        pInArgs->pMonitorModes[i] = {
+            .Size = sizeof(*pInArgs->pMonitorModes),
+            .Origin = IDDCX_MONITOR_MODE_ORIGIN_MONITORDESCRIPTOR,
+            .MonitorVideoSignalInfo {
+                .pixelRate = mode.width * mode.height * mode.refreshRate,
+                .hSyncFreq { .Numerator = mode.refreshRate * mode.height, .Denominator = 1 },
+                .vSyncFreq { .Numerator = mode.refreshRate, .Denominator = 1 },
+                .activeSize { .cx = mode.width, .cy = mode.height },
+                .totalSize { .cx = mode.width, .cy = mode.height },
+                .videoStandard = 3, // D3DKMDT_VSS_VESA_CVT
+                .scanLineOrdering = DISPLAYCONFIG_SCANLINE_ORDERING_PROGRESSIVE
+            }
+        };
+    }
+    pOutArgs->PreferredMonitorModeIdx = 0;
+
+    return STATUS_SUCCESS;
 }
 
 /// <summary>
@@ -470,25 +478,24 @@ AdapterContext::~AdapterContext() { }
 /// Initializes display adapter
 /// </summary>
 NTSTATUS AdapterContext::Init() {
-
-    IDDCX_ADAPTER_CAPS adapterCaps = { .Size = sizeof(adapterCaps) };
-
-    // Basic feature support
-    adapterCaps.MaxMonitorsSupported = Monidroid::MAX_MONITORS_SUPPORTED;
-    adapterCaps.StaticDesktopReencodeFrameCount = MonitorProcessor::REENCODES_COUNT;
-
-    // Telemetry
-    adapterCaps.EndPointDiagnostics.Size = sizeof(adapterCaps.EndPointDiagnostics);
-    adapterCaps.EndPointDiagnostics.TransmissionType = IDDCX_TRANSMISSION_TYPE_WIRED_OTHER;
-    adapterCaps.EndPointDiagnostics.GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_HARDWARE;
-
-    adapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"<hidden>";
-    adapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"<hidden>";
-    adapterCaps.EndPointDiagnostics.pEndPointModelName = L"<hidden>";
-
     IDDCX_ENDPOINT_VERSION version = { .Size = sizeof(version), .MajorVer = 0, .MinorVer = 1 };
-    adapterCaps.EndPointDiagnostics.pFirmwareVersion = &version;
-    adapterCaps.EndPointDiagnostics.pHardwareVersion = &version;
+
+    IDDCX_ADAPTER_CAPS adapterCaps = {
+        .Size = sizeof(adapterCaps),
+
+        .MaxMonitorsSupported = AdapterContext::MAX_MONITOR_COUNT,
+        .EndPointDiagnostics {
+            .Size = sizeof(adapterCaps.EndPointDiagnostics),
+            .TransmissionType = IDDCX_TRANSMISSION_TYPE_WIRED_OTHER,
+            .pEndPointFriendlyName = L"<hidden>",
+            .pEndPointModelName = L"<hidden>",
+            .pEndPointManufacturerName = L"<hidden>",
+            .pHardwareVersion = &version,
+            .pFirmwareVersion = &version,
+            .GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE, // #1
+        },
+        .StaticDesktopReencodeFrameCount = MonitorProcessor::REENCODES_COUNT,
+    };
 
     WDF_OBJECT_ATTRIBUTES attributes;
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, AdapterContextWrapper);
@@ -573,7 +580,6 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     // Add monitor to monitor list
     connectedMonitors[connectorIndex].monitorObject = monitorCreateOut.MonitorObject;
     //connectedMonitors[connectorIndex].monitorNumberBySocket = pMonitorInfo->monitorNumberBySocket;
-    pMonitorInfo->connectorIndex = connectorIndex;
     pContext->pContext->SetupMonitor(pMonitorInfo);
 
     // Tell the OS that the monitor has been plugged in
@@ -581,6 +587,7 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     status = IddCxMonitorArrival(monitorCreateOut.MonitorObject, &monitorArrivalOut);
 
     // Pass data to enable frames processing
+    pMonitorInfo->connectorIndex = connectorIndex;
     pMonitorInfo->adapterLuid = monitorArrivalOut.OsAdapterLuid;
     pMonitorInfo->driverProcessId = GetCurrentProcessId();
 
@@ -636,7 +643,7 @@ NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
 #pragma region Monitor functionality
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor) :
-    info { .monitorObject = Monitor }
+    monitorObject(Monitor)
 {
     InitializeCriticalSection(&syncRoot);
 }
@@ -646,9 +653,9 @@ MonitorContext::~MonitorContext() {
 }
 
 void MonitorContext::SetupMonitor(ADAPTER_MONITOR_INFO* pMonitirInfo) {
-    info.width = pMonitirInfo->width;
-    info.height = pMonitirInfo->height;
-    info.hertz = pMonitirInfo->hertz;
+    preffered.width = pMonitirInfo->width;
+    preffered.height = pMonitirInfo->height;
+    preffered.refreshRate = pMonitirInfo->hertz;
 }
 
 /// <summary>
@@ -774,7 +781,7 @@ DWORD WINAPI MonitorContext::MyThreadProc(LPVOID pContext) {
 }
 
 HRESULT MonitorContext::ProcessorFunc() {
-    DWORD taskIndex = 0;
+    //DWORD taskIndex = 0;
     //HANDLE avTaskHandle = AvSetMmThreadCharacteristicsW(L"Distribution", &taskIndex);
 
     HRESULT hr = ProcessorMain();
@@ -960,11 +967,12 @@ HRESULT MonitorProcessor::Start() {
     if (m_hStopEvent == NULL) {
         return HRESULT_FROM_WIN32(GetLastError());
     }
-
-    HRESULT hr = m_pDevice->QueryInterface(IID_PPV_ARGS(&m_pSwapChainDevice));
+    
+    IDXGIDevice3* pSwapChainDevice;
+    HRESULT hr = m_pDevice->QueryInterface(IID_PPV_ARGS(&pSwapChainDevice));
     if (FAILED(hr)) return hr;
 
-    IDARG_IN_SWAPCHAINSETDEVICE chainSetDevice { m_pSwapChainDevice.Get() };
+    IDARG_IN_SWAPCHAINSETDEVICE chainSetDevice { .pDevice = pSwapChainDevice };
     hr = IddCxSwapChainSetDevice(m_swapChain, &chainSetDevice);
     if (FAILED(hr)) return hr;
 

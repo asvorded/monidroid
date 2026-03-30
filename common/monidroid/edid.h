@@ -84,6 +84,7 @@ namespace Monidroid {
         u8 checksum;
 
         void setDefaultMode(int width, int height, int hertz) {
+            // Black magic, do not try to understand how it works
             double vFieldRate = hertz * (1 + 350 / 1'000'000.0); // ver.3: +350 ppm
             double hPeriodEst = (1'000'000.0 / vFieldRate - EDID_MIN_V_BLANK_US) / height;
             u32 vbiLines = (u32)ceil(EDID_MIN_V_BLANK_US / hPeriodEst);
@@ -132,6 +133,12 @@ namespace Monidroid {
     };
     
     static_assert(sizeof(EDID) == 128);
+
+    struct MonitorMode {
+        u32 width;
+        u32 height;
+        u32 refreshRate;
+    };
 
     inline constexpr EDID CUSTOM_EDID {
         .header = { 0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00 },
@@ -209,5 +216,13 @@ namespace Monidroid {
         },
         .extCount = 0,
         .checksum = 0,
+    };
+
+    inline constexpr MonitorMode CUSTOM_EDID_MODES[] = {
+        {  }, // reserved
+        { .width = 1920, .height = 1080, .refreshRate = 60 },
+        { .width = 640, .height = 480, .refreshRate = 60 },
+        { .width = 800, .height = 600, .refreshRate = 60 },
+        { .width = 1024, .height = 768, .refreshRate = 60 },
     };
 }
