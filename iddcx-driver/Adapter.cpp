@@ -63,16 +63,16 @@ NTSTATUS AdapterContext::Init() {
 /// </summary>
 NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided) {
     // Find the closest slot
-    int connectorIndex = 0;
-    while (connectedMonitors[connectorIndex].monitorObject != nullptr && connectorIndex < MAX_MONITOR_COUNT) connectorIndex++;
-    if (connectorIndex == MAX_MONITOR_COUNT) {
+    int idx = 0;
+    while (connectedMonitors[idx].monitorObject != nullptr && idx < MAX_MONITOR_COUNT) idx++;
+    if (idx == MAX_MONITOR_COUNT) {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
     // Fill monitor info
     IDDCX_MONITOR_INFO monitorInfo = {};
     monitorInfo.Size = sizeof(IDDCX_MONITOR_INFO);
-    monitorInfo.ConnectorIndex = connectorIndex;
+    monitorInfo.ConnectorIndex = idx;
     monitorInfo.MonitorContainerId = MonidroidGroupGuid;
     monitorInfo.MonitorType = DISPLAYCONFIG_OUTPUT_TECHNOLOGY_HDMI;
 
@@ -94,11 +94,10 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     WDF_OBJECT_ATTRIBUTES attr;
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attr, MonitorContextWrapper);
     attr.EvtCleanupCallback = [](WDFOBJECT object) {
-        MonitorContextWrapper* pContext = WdfObjectGet_MonitorContextWrapper(object);
-        if (pContext) {
-            pContext->Cleanup();
+        if (auto *context = WdfObjectGet_MonitorContextWrapper(object)) {
+            context->Cleanup();
         }
-        };
+    };
 
     IDARG_IN_MONITORCREATE monitorCreate {
         .ObjectAttributes = &attr,
@@ -116,8 +115,7 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     pContext->self = new MonitorContext(monitorCreateOut.MonitorObject);
 
     // Add monitor to monitor list
-    connectedMonitors[connectorIndex].monitorObject = monitorCreateOut.MonitorObject;
-    //connectedMonitors[connectorIndex].monitorNumberBySocket = pMonitorInfo->monitorNumberBySocket;
+    connectedMonitors[idx].monitorObject = monitorCreateOut.MonitorObject;
     pContext->self->SetupMonitor(pMonitorInfo);
 
     // Tell the OS that the monitor has been plugged in
@@ -125,7 +123,7 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     status = IddCxMonitorArrival(monitorCreateOut.MonitorObject, &monitorArrivalOut);
 
     // Pass data to enable frames processing
-    pMonitorInfo->connectorIndex = connectorIndex;
+    pMonitorInfo->connectorIndex = idx;
     pMonitorInfo->adapterLuid = monitorArrivalOut.OsAdapterLuid;
     pMonitorInfo->driverProcessId = GetCurrentProcessId();
 

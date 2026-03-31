@@ -8,15 +8,18 @@
 
 using namespace Monidroid;
 
-static inline DISPLAYCONFIG_VIDEO_SIGNAL_INFO MakeSignalInfo(const MonitorMode& mode) {
+static inline DISPLAYCONFIG_VIDEO_SIGNAL_INFO MakeSignalInfo(const MonitorMode& mode, UINT32 vSyncFreqDivider = 0) {
     return {
         .pixelRate = mode.width * mode.height * mode.refreshRate,
         .hSyncFreq { .Numerator = mode.refreshRate * mode.height, .Denominator = 1 },
         .vSyncFreq { .Numerator = mode.refreshRate, .Denominator = 1 },
         .activeSize { .cx = mode.width, .cy = mode.height },
         .totalSize { .cx = mode.width, .cy = mode.height },
-        // <d3dkmdt.h> generally cannot be included in UMD, so enum value is replaced
-        .videoStandard = 3, // D3DKMDT_VSS_VESA_CVT,
+        .AdditionalSignalInfo {
+            // <d3dkmdt.h> generally cannot be included in UMD, so enum value is replaced
+            .videoStandard = 3, // D3DKMDT_VSS_VESA_CVT
+            .vSyncFreqDivider = vSyncFreqDivider,
+        },
         .scanLineOrdering = DISPLAYCONFIG_SCANLINE_ORDERING_PROGRESSIVE
     };
 }
@@ -251,8 +254,9 @@ NTSTATUS MdEvtMonitorGetDefaultDescriptionModes(
     auto* context = WdfObjectGet_MonitorContextWrapper(MonitorObject);
     const UINT modesCount = ARRAYSIZE(CUSTOM_EDID_MODES);
 
+    pOutArgs->DefaultMonitorModeBufferOutputCount = modesCount;
+
     if (pInArgs->DefaultMonitorModeBufferInputCount < modesCount) {
-        pOutArgs->DefaultMonitorModeBufferOutputCount = modesCount;
         return (pInArgs->DefaultMonitorModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
     }
 
@@ -265,7 +269,6 @@ NTSTATUS MdEvtMonitorGetDefaultDescriptionModes(
         };
     }
 
-    pOutArgs->DefaultMonitorModeBufferOutputCount = ARRAYSIZE(CUSTOM_EDID_MODES);
     pOutArgs->PreferredMonitorModeIdx = 0;
     
     return STATUS_SUCCESS;
@@ -279,8 +282,9 @@ NTSTATUS MdEvtMonitorQueryTargetModes(
     auto* context = WdfObjectGet_MonitorContextWrapper(MonitorObject);
     const UINT modesCount = ARRAYSIZE(CUSTOM_EDID_MODES);
 
+    pOutArgs->TargetModeBufferOutputCount = modesCount;
+
     if (pInArgs->TargetModeBufferInputCount < modesCount) {
-        pOutArgs->TargetModeBufferOutputCount = modesCount;
         return (pInArgs->TargetModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
     }
 
@@ -289,7 +293,7 @@ NTSTATUS MdEvtMonitorQueryTargetModes(
         pInArgs->pTargetModes[i] = {
             .Size = sizeof(*pInArgs->pTargetModes),
             .TargetVideoSignalInfo {
-                .targetVideoSignalInfo = MakeSignalInfo(mode),
+                .targetVideoSignalInfo = MakeSignalInfo(mode, 1),
             },
         };
     }
