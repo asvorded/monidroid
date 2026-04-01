@@ -3,12 +3,16 @@
 #include <thread>
 #include <vector>
 #include <string>
-
-#include "native.h"
+#include <string_view>
 
 #include <boost/asio.hpp>
 
+#include "monidroid.h"
+
+#include "native.h"
+
 using namespace boost::asio;
+using namespace Monidroid;
 
 enum class ClientState {
     New, Identified, Connected, Streaming, Disconnected, Error
@@ -37,14 +41,16 @@ public:
 
 public:
     Client(ip::tcp::socket socket);
+    ~Client();
 
-    Client(const Client&) = delete;
-    Client& operator=(const Client&) = delete;
+    MD_CLASS_PTR_ONLY(Client);
 
     ClientState state() const;
     bool identifyClient();
     bool connectMonitor(const Adapter& adapter);
     void sendFrames();
     void disconnectMonitor();
-    void finalize();
+
+    void sendError(ErrorCode code);
+    void sendError(const std::string_view msg);
 };

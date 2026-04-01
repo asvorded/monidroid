@@ -5,6 +5,8 @@
 
 #include "monidroid/edid.h"
 
+using namespace Monidroid;
+
 using ColorType = uint32_t;
 
 enum class MDStatus {

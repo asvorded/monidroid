@@ -127,8 +127,8 @@ void Client::sendFrames() {
     m_sending = true;
     while (m_sending) {
         MDStatus status = monitorRequestFrame(m_monitor, frameData, dataPixSize);
-        if (status == MDStatus::Ok) {
-
+        if (status == MDStatus::Error) {
+            m_sending = false;
         }
     }
 }
