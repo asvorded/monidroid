@@ -33,7 +33,7 @@ EVT_IDD_CX_PARSE_MONITOR_DESCRIPTION                MdEvtParseMonitorDescription
 /* @brief Called when monitor modes are commited or changed */
 EVT_IDD_CX_ADAPTER_COMMIT_MODES                     MdEvtAdapterCommitModes;
 
-/* @brief Called when swap-chain is assigned to monitor */
+/* @brief Called when swap-chain is assigned or reassigned to monitor */
 EVT_IDD_CX_MONITOR_ASSIGN_SWAPCHAIN                 MdEvtMonitorAssignSwapChain;
 
 /* @brief Called when swap-chain is unassigned from monitor */

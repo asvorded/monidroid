@@ -1,6 +1,5 @@
 #include "client.h"
 
-#include <string_view>
 #include <cstring>
 #include <array>
 #include <memory>
@@ -8,12 +7,17 @@
 #include <turbojpeg.h>
 #include <gst/gst.h>
 
-#include "monidroid.h"
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"
 
 Client::Client(ip::tcp::socket socket) : m_socket(std::move(socket)) {
     m_netBuffer.reserve(7u + 4 + 12);
+}
+
+Client::~Client() {
+    boost::system::error_code ec;
+    m_socket.shutdown(m_socket.shutdown_both, ec);
+    m_socket.close();
 }
 
 ClientState Client::state() const {
@@ -70,9 +74,9 @@ bool Client::identifyClient() {
         {
             int *settings = reinterpret_cast<int*>(m_netBuffer.data());
             // Get multiple of 2
-            int width = settings[0] & ~0x01;
-            int height = settings[1] & ~0x01;
-            int refreshRate = settings[2];
+            unsigned int width = settings[0] & ~0x01;
+            unsigned int height = settings[1] & ~0x01;
+            unsigned int refreshRate = settings[2];
             if (width < height) {
                 std::swap(width, height);
             }
@@ -110,6 +114,11 @@ bool Client::connectMonitor(const Adapter &adapter) {
 }
 
 void Client::sendFrames() {
+    if (!m_monitor) {
+        m_state = ClientState::Error;
+        return;
+    }
+
     m_state = ClientState::Streaming;
 
     std::unique_ptr<ColorType[]> frameData;
@@ -180,8 +189,9 @@ void Client::disconnectMonitor() {
     monitorDisconnect(m_monitor);
 }
 
-void Client::finalize() {
-    boost::system::error_code ec;
-    m_socket.shutdown(m_socket.shutdown_both, ec);
-    m_socket.close();
+void Client::sendError(ErrorCode code) {
+}
+
+void Client::sendError(const std::string_view msg) {
+
 }

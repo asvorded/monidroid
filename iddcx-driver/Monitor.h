@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <mutex>
+#include <system_error>
 
 #include <Windows.h>
 #include <wdf.h>
@@ -15,8 +16,25 @@
 using namespace Microsoft::WRL;
 using namespace Monidroid;
 
+class WdfMutex {
+public:
+    WdfMutex(WDFOBJECT m) : m(m) { }
+
+    void lock() {
+        WdfObjectAcquireLock(m);
+    }
+
+    void unlock() {
+        WdfObjectReleaseLock(m);
+    }
+
+private:
+    WDFOBJECT m;
+};
+
 class MonitorProcessor {
     using BufferArgs = IDARG_OUT_RELEASEANDACQUIREBUFFER;
+    using Bool = unsigned int;
 public:
     static constexpr auto MAX_STOP_WAIT = 10'000U;
     static constexpr auto MAX_FRAME_WAIT = 5'000U;
@@ -28,23 +46,23 @@ public:
 
     HRESULT Init(LUID adapterLuid);
     HRESULT Start();
+    void Stop() noexcept(false);
     HRESULT RequestFrame(FRAME_MONITOR_INFO& info);
     HRESULT CopyFrame(const BufferArgs& args);
-    void Stop();
-    void ForceReset(bool withDelete);
 
 private:
     static DWORD CALLBACK ThreadProc(void* arg);
     HRESULT StartPrivate();
 
+private:
     IDDCX_SWAPCHAIN m_swapChain;
-    HANDLE m_hNewFrameEvent;
-    HANDLE m_hStopEvent;
+    HANDLE m_newFrameEvent;
     HANDLE m_thread;
+    HANDLE m_stopEvent;
 
-    UINT m_frameRequested;
-    FRAME_MONITOR_INFO m_current;
+    Bool m_frameRequested;
     HANDLE m_frameReadyEvent;
+    FRAME_MONITOR_INFO m_currentFrameInfo;
 
     ComPtr<ID3D11Device3> m_pDevice;
     ComPtr<ID3D11DeviceContext3> m_pDeviceContext;
@@ -68,6 +86,8 @@ struct MonitorContext {
 private:
     IDDCX_MONITOR m_monitor;
     MonitorMode m_preffered;
+
+    WdfMutex m_lock;
 
     std::unique_ptr<MonitorProcessor> m_pProcessor;
 };

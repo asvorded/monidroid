@@ -76,20 +76,28 @@ void Server::serverMainAsync() {
 void Server::communicationMain(std::shared_ptr<Client> client) {
     Monidroid::DefaultLog("New client connected");
 
+    bool result;
+
     // 1. Identify device
-    client->identifyClient();
+    result = client->identifyClient();
+    if (!result) {
+        Monidroid::DefaultLog("Disconnected from client due to identification error");
+        return;
+    }
 
     // 2. Connect monitor
-    client->connectMonitor(m_adapter);
+    result = client->connectMonitor(m_adapter);
+    if (!result) {
+        Monidroid::DefaultLog("Failed to connect monitor, send error and disconnect");
+        client->sendError(Monidroid::ErrorCode::MonitorConnectFail);
+        return;
+    }
 
     // 3. Send frames
     client->sendFrames();
     
     // 4. Disconnect monitor
     client->disconnectMonitor();
-
-    // 5. Finalize
-    client->finalize();
 
     Monidroid::DefaultLog("Client {} disconnected", client->m_modelName);
 }

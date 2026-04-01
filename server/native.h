@@ -3,11 +3,7 @@
 #include <memory>
 #include <stdint.h>
 
-struct MonitorMode {
-	int width;
-	int height;
-	int refreshRate;
-};
+#include "monidroid/edid.h"
 
 using ColorType = uint32_t;
 

@@ -3,8 +3,9 @@
 #include <avrt.h>
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor)
-    : m_monitor(Monitor)
-    , m_preffered()
+  : m_monitor(Monitor),
+    m_preffered(),
+    m_lock(Monitor)
 { }
 
 MonitorContext::~MonitorContext() { }
@@ -20,23 +21,29 @@ const MonitorMode& MonitorContext::PreferredMode() const {
 }
 
 HRESULT MonitorContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable) {
-    m_pProcessor = std::make_unique<MonitorProcessor>(SwapChain, hNextSurfaceAvailable);
+    std::lock_guard<WdfMutex> g(m_lock);
+
+    m_pProcessor.reset(new MonitorProcessor(SwapChain, hNextSurfaceAvailable));
     HRESULT hr = m_pProcessor->Init(AdapterLuid);
-    if (FAILED(hr)) {
-        m_pProcessor->ForceReset(true);
-        m_pProcessor.reset();
-    } else {
+    if (SUCCEEDED(hr)) {
         hr = m_pProcessor->Start();
+    } else {
+        m_pProcessor.reset();
     }
     return hr;
 }
 
 void MonitorContext::UnassignSwapChain() {
+    std::lock_guard<WdfMutex> g(m_lock);
+    
     m_pProcessor->Stop();
     m_pProcessor.reset();
 }
 
 HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO* pInfo) {
+    std::lock_guard<WdfMutex> g(m_lock);
+    
+    HRESULT hr;
     if (m_pProcessor) {
         return m_pProcessor->RequestFrame(*pInfo);
     } else {
@@ -46,11 +53,12 @@ HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO* pInfo) {
 
 MonitorProcessor::MonitorProcessor(IDDCX_SWAPCHAIN swapChain, HANDLE hNextSurfaceAvailable)
   : m_swapChain(swapChain),
-    m_hNewFrameEvent(hNextSurfaceAvailable),
-    m_hStopEvent(NULL),
+    m_newFrameEvent(hNextSurfaceAvailable),
+    m_stopEvent(),
+    m_frameReadyEvent(),
+    m_thread(),
     m_frameRequested(false),
-    m_current(),
-    m_thread()
+    m_currentFrameInfo()
 { }
 
 HRESULT MonitorProcessor::Init(LUID adapterLuid) {
@@ -80,18 +88,9 @@ HRESULT MonitorProcessor::Init(LUID adapterLuid) {
     return S_OK;
 }
 
-MonitorProcessor::~MonitorProcessor() {
-    if (m_swapChain != nullptr) {
-        WdfObjectDelete(m_swapChain);
-    }
-    CloseHandle(m_hNewFrameEvent);
-    CloseHandle(m_hStopEvent);
-    CloseHandle(m_thread);
-}
-
 HRESULT MonitorProcessor::Start() {
-    m_hStopEvent = CreateEventW(nullptr, false, false, nullptr);
-    if (m_hStopEvent == NULL) {
+    m_stopEvent = CreateEventW(nullptr, false, false, nullptr);
+    if (m_stopEvent == NULL) {
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
@@ -101,16 +100,42 @@ HRESULT MonitorProcessor::Start() {
     }
 
     m_thread = CreateThread(nullptr, 0, ThreadProc, this, 0, nullptr);
+    if (m_thread == NULL) {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
 
     return S_OK;
+}
+
+void MonitorProcessor::Stop() {
+    SetEvent(m_stopEvent);
+
+    DWORD result = WaitForSingleObject(m_thread, MAX_STOP_WAIT);
+    if (result == WAIT_TIMEOUT) {
+        throw std::system_error(ERROR_TIMEOUT, std::system_category(), "Processor stop failure");
+    }
+}
+
+MonitorProcessor::~MonitorProcessor() {
+    CloseHandle(m_newFrameEvent);
+    
+    if (m_swapChain != nullptr)    WdfObjectDelete(m_swapChain);
+
+    if (m_thread != NULL)          CloseHandle(m_thread);
+    if (m_stopEvent != NULL)       CloseHandle(m_stopEvent);
+    if (m_frameReadyEvent != NULL) CloseHandle(m_frameReadyEvent);
 }
 
 DWORD MonitorProcessor::ThreadProc(void* arg) {
     DWORD AvTask = 0;
     HANDLE AvTaskHandle = AvSetMmThreadCharacteristicsW(L"Distribution", &AvTask);
 
-    static_cast<MonitorProcessor*>(arg)->StartPrivate();
+    auto* self = static_cast<MonitorProcessor*>(arg);
+    HRESULT hr = self->StartPrivate();
     
+    WdfObjectDelete(self->m_swapChain);
+    self->m_swapChain = nullptr;
+
     AvRevertMmThreadCharacteristics(AvTaskHandle);
     return 0;
 }
@@ -124,7 +149,6 @@ HRESULT MonitorProcessor::StartPrivate() {
     hr = IddCxSwapChainSetDevice(m_swapChain, &chainSetDevice);
     // WTF is going on when it returns 0x887A0026 (DXGI_ERROR_ACCESS_LOST)?????
     if (FAILED(hr)) {
-        ForceReset(false);
         return hr;
     }
 
@@ -136,8 +160,8 @@ HRESULT MonitorProcessor::StartPrivate() {
         if (hr == E_PENDING) {
             // We must wait for a new buffer
             HANDLE WaitHandles[] {
-                m_hNewFrameEvent,
-                m_hStopEvent
+                m_newFrameEvent,
+                m_stopEvent
             };
             DWORD WaitResult = WaitForMultipleObjects(ARRAYSIZE(WaitHandles), WaitHandles, FALSE, 16);
             if (WaitResult == WAIT_OBJECT_0 || WaitResult == WAIT_TIMEOUT) {
@@ -145,10 +169,11 @@ HRESULT MonitorProcessor::StartPrivate() {
                 continue;
             } else if (WaitResult == WAIT_OBJECT_0 + 1) {
                 // We need to terminate
+                hr = S_OK;
                 break;
             } else {
                 // The wait was cancelled or something unexpected happened
-                hr = HRESULT_FROM_WIN32(WaitResult);
+                hr = HRESULT_FROM_WIN32(GetLastError());
                 break;
             }
         } else if (SUCCEEDED(hr)) {
@@ -163,25 +188,40 @@ HRESULT MonitorProcessor::StartPrivate() {
             hr = IddCxSwapChainFinishedProcessingFrame(m_swapChain);
             if (FAILED(hr)) { break; }
         } else {
+            // Some error happened
+            // Next step is reassigning swap-chain (??)
             break;
         }
     }
 
-    ForceReset(true);
     return hr;
 }
 
 HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO& info) {
     InterlockedExchange(&m_frameRequested, true);
 
-    DWORD w = WaitForSingleObject(m_frameReadyEvent, MAX_FRAME_WAIT);
-    if (w == WAIT_TIMEOUT) {
-        // Handle sudden processing delay
+    HANDLE waits[] {
+        m_frameReadyEvent,
+        m_stopEvent,
+    };
+    DWORD result = WaitForMultipleObjects(ARRAYSIZE(waits), waits, false, MAX_FRAME_WAIT);
+    switch (result) {
+    case WAIT_OBJECT_0:
+        // Frame ready
+        break;
+    case WAIT_OBJECT_0 + 1:
+        // Sudden processor stop detected
+        return E_ABORT;
+        break;
+    case WAIT_TIMEOUT:
+        return HRESULT_FROM_WIN32(ERROR_TIMEOUT);
+        break;
+    default:
+        return E_UNEXPECTED;
     }
 
-    // Frame ready, save info
-    info.frameHandle = m_current.frameHandle;
-    info.timeStamp = m_current.timeStamp;
+    info.frameHandle = m_currentFrameInfo.frameHandle;
+    info.timeStamp = m_currentFrameInfo.timeStamp;
 
     return S_OK;
 }
@@ -204,25 +244,11 @@ HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
         ComPtr<IDXGIResource1> pRequestedFrame;
         pRequestedTexture->QueryInterface(IID_PPV_ARGS(&pRequestedFrame));
 
-        hr = pRequestedFrame->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &m_current.frameHandle);
+        hr = pRequestedFrame->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &m_currentFrameInfo.frameHandle);
         if (SUCCEEDED(hr)) {
-            m_current.timeStamp = args.MetaData.PresentDisplayQPCTime;
+            m_currentFrameInfo.timeStamp = args.MetaData.PresentDisplayQPCTime;
         }
     }
     return S_OK;
 }
 
-void MonitorProcessor::Stop() {
-    SetEvent(m_hStopEvent);
-
-    if (m_thread) {
-        WaitForSingleObject(m_thread, MAX_STOP_WAIT);
-    }
-}
-
-void MonitorProcessor::ForceReset(bool withDelete) {
-    if (withDelete) {
-        WdfObjectDelete(m_swapChain);
-    }
-    m_swapChain = nullptr;
-}
