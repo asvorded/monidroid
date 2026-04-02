@@ -37,7 +37,10 @@ struct FRAME_MONITOR_INFO {
     _In_ UINT connectorIndex;  // IN
 
     _Out_ HANDLE frameHandle;  // OUT
-    _Out_ UINT64 timeStamp;    // OUT 
+    _Out_ struct METADATA {
+        UINT64 timeStamp;
+        UINT frameNumber;
+    } metadata;                // OUT
 };
 
 const int FEATURE_LEVELS_COUNT = 7;

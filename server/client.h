@@ -43,7 +43,7 @@ public:
     Client(ip::tcp::socket socket);
     ~Client();
 
-    MD_CLASS_PTR_ONLY(Client);
+    MD_CLASS_PTR_ONLY(Client)
 
     ClientState state() const;
     bool identifyClient();

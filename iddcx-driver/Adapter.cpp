@@ -61,7 +61,7 @@ NTSTATUS AdapterContext::Init() {
 /// <summary>
 /// Called when new monitor was connected
 /// </summary>
-NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided) {
+NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
     // Find the closest slot
     int idx = 0;
     while (connectedMonitors[idx].monitorObject != nullptr && idx < MAX_MONITOR_COUNT) idx++;
@@ -83,7 +83,7 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     edid.commit();
 
     monitorInfo.MonitorDescription.Type = IDDCX_MONITOR_DESCRIPTION_TYPE_EDID;
-    if (edidProvided) {
+    if (EDID_PROVIDED) {
         monitorInfo.MonitorDescription.pData = edid.raw();
         monitorInfo.MonitorDescription.DataSize = sizeof(edid);
     } else {
@@ -121,6 +121,9 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     // Tell the OS that the monitor has been plugged in
     IDARG_OUT_MONITORARRIVAL monitorArrivalOut;
     status = IddCxMonitorArrival(monitorCreateOut.MonitorObject, &monitorArrivalOut);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
 
     // Pass data to enable frames processing
     pMonitorInfo->connectorIndex = idx;
@@ -128,19 +131,6 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool
     pMonitorInfo->driverProcessId = GetCurrentProcessId();
 
     return status;
-}
-
-NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
-    // get handle to frame
-    IDDCX_MONITOR monitorObject = connectedMonitors[pFrameInfo->connectorIndex].monitorObject;
-    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
-
-    HRESULT hr = pContext->self->RequestFrame(pFrameInfo);
-    if (FAILED(hr)) {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    return STATUS_SUCCESS;
 }
 
 NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
@@ -154,4 +144,17 @@ NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
     connectedMonitors[idx].monitorObject = nullptr;
 
     return IddCxMonitorDeparture(m);
+}
+
+NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
+    // get handle to frame
+    IDDCX_MONITOR monitorObject = connectedMonitors[pFrameInfo->connectorIndex].monitorObject;
+    auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
+
+    HRESULT hr = pContext->self->RequestFrame(pFrameInfo);
+    if (FAILED(hr)) {
+        return NTSTATUS_FROM_WIN32(HRESULT_CODE(hr));
+    }
+
+    return STATUS_SUCCESS;
 }

@@ -117,6 +117,7 @@ NTSTATUS MdEvtDriverDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
         return status;
     }
 
+    /* Finish initialization */
     AdapterContextWrapper* pContext = WdfObjectGet_AdapterContextWrapper(device);
     pContext->self = new AdapterContext(device);
 
@@ -156,7 +157,6 @@ void MdEvtDeviceIoControl(WDFDEVICE Device, WDFREQUEST Request,
     size_t OutputBufferLength, size_t InputBufferLength,
     ULONG IoControlCode
 ) {
-    NTSTATUS status = STATUS_INVALID_PARAMETER;
     auto* pContext = WdfObjectGet_AdapterContextWrapper(Device);
 
     WDFMEMORY inMemory = nullptr;
@@ -165,33 +165,25 @@ void MdEvtDeviceIoControl(WDFDEVICE Device, WDFREQUEST Request,
     WdfRequestRetrieveInputMemory(Request, &inMemory);
     WdfRequestRetrieveOutputMemory(Request, &outMemory);
 
-    ULONG_PTR information = 0;
     PVOID inBuf = WdfMemoryGetBuffer(inMemory, NULL);
 
+    NTSTATUS status = STATUS_INVALID_PARAMETER;
+    ULONG_PTR information = 0;
+
+#define MD_ADD_IOCTL_HANDLER(code, func, type) \
+case code: \
+{ \
+    type* data = (type*)inBuf; \
+    status = pContext->self->func(data); \
+    WdfMemoryCopyFromBuffer(outMemory, 0, inBuf, sizeof(type)); \
+    information = sizeof(type); \
+    break; \
+}
+
     switch (IoControlCode) {
-    case IOCTL_IDDCX_MONITOR_CONNECT:
-    case IOCTL_IDDCX_MONITOR_DISCONNECT:
-    {
-        ADAPTER_MONITOR_INFO* pMonitorInfo = (ADAPTER_MONITOR_INFO*)inBuf;
-
-        if (IoControlCode == IOCTL_IDDCX_MONITOR_CONNECT) {
-            status = pContext->self->ConnectMonitor(pMonitorInfo);
-        } else {
-            status = pContext->self->DisconnectMonitor(pMonitorInfo);
-        }
-
-        WdfMemoryCopyFromBuffer(outMemory, 0, inBuf, sizeof(ADAPTER_MONITOR_INFO));
-        information = sizeof(ADAPTER_MONITOR_INFO);
-        break;
-    }
-    case IOCTL_IDDCX_REQUEST_FRAME:
-    {
-        FRAME_MONITOR_INFO* pFrameInfo = (FRAME_MONITOR_INFO*)inBuf;
-        status = pContext->self->FrameRequest(pFrameInfo);
-        WdfMemoryCopyFromBuffer(outMemory, 0, inBuf, sizeof(FRAME_MONITOR_INFO));
-        information = sizeof(FRAME_MONITOR_INFO);
-        break;
-    }
+    MD_ADD_IOCTL_HANDLER(IOCTL_IDDCX_MONITOR_CONNECT, AdapterContext::ConnectMonitor, ADAPTER_MONITOR_INFO)
+    MD_ADD_IOCTL_HANDLER(IOCTL_IDDCX_MONITOR_DISCONNECT, AdapterContext::DisconnectMonitor, ADAPTER_MONITOR_INFO)
+    MD_ADD_IOCTL_HANDLER(IOCTL_IDDCX_REQUEST_FRAME, AdapterContext::FrameRequest, FRAME_MONITOR_INFO)
     default:
         status = STATUS_INVALID_PARAMETER;
         break;

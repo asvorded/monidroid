@@ -39,6 +39,7 @@ HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO* pInfo) {
     if (m_pProcessor) {
         return m_pProcessor->RequestFrame(*pInfo);
     } else {
+        // Monitor is off (?)
         return E_NOT_VALID_STATE;
     }
 }
@@ -50,7 +51,7 @@ MonitorProcessor::MonitorProcessor(IDDCX_SWAPCHAIN swapChain, HANDLE hNextSurfac
     m_frameReadyEvent(),
     m_thread(),
     m_frameRequested(false),
-    m_currentFrameInfo()
+    m_currentMetadata()
 { }
 
 HRESULT MonitorProcessor::Init(LUID adapterLuid) {
@@ -81,7 +82,8 @@ HRESULT MonitorProcessor::Init(LUID adapterLuid) {
 }
 
 HRESULT MonitorProcessor::Start() {
-    m_stopEvent = CreateEventW(nullptr, false, false, nullptr);
+    // Stop event has manual reset
+    m_stopEvent = CreateEventW(nullptr, true, false, nullptr);
     if (m_stopEvent == NULL) {
         return HRESULT_FROM_WIN32(GetLastError());
     }
@@ -102,10 +104,14 @@ HRESULT MonitorProcessor::Start() {
 void MonitorProcessor::Stop() {
     SetEvent(m_stopEvent);
 
+#ifdef DBG
     DWORD result = WaitForSingleObject(m_thread, MAX_STOP_WAIT);
     if (result == WAIT_TIMEOUT) {
         throw std::system_error(ERROR_TIMEOUT, std::system_category(), "Processor stop failure");
     }
+#else
+    DWORD result = WaitForSingleObject(m_thread, INFINITE);
+#endif
 }
 
 MonitorProcessor::~MonitorProcessor() {
@@ -125,6 +131,15 @@ DWORD MonitorProcessor::ThreadProc(void* arg) {
     auto* self = static_cast<MonitorProcessor*>(arg);
     self->StartPrivate();
     
+    // Set event to avoid MAX_FRAME_WAIT waiting
+    // Probable calls order:
+    // RequestFrame()      <- here we don't know state of processor thread 
+    // ------------------
+    // Assign/UnassignSwapChain() 
+    // ------------------  <- here old processor is 100% stopped and freed
+    // RequestFrame()
+    SetEvent(self->m_stopEvent);
+
     WdfObjectDelete(self->m_swapChain);
     self->m_swapChain = nullptr;
 
@@ -181,7 +196,7 @@ HRESULT MonitorProcessor::StartPrivate() {
             if (FAILED(hr)) { break; }
         } else {
             // Some error happened
-            // Next step is reassigning swap-chain (??)
+            // Next step is reassigning swap-chain or processor stop
             break;
         }
     }
@@ -202,44 +217,66 @@ HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO& info) {
         // Frame ready
         break;
     case WAIT_OBJECT_0 + 1:
-        // Sudden processor stop detected
         return E_ABORT;
         break;
     case WAIT_TIMEOUT:
+        // Normally it must never happen
+#ifdef DBG
+        throw std::system_error(ERROR_TIMEOUT, std::system_category(), "Unexpected frame request detected");
+#endif
         return HRESULT_FROM_WIN32(ERROR_TIMEOUT);
         break;
     default:
         return E_UNEXPECTED;
     }
 
-    info.frameHandle = m_currentFrameInfo.frameHandle;
-    info.timeStamp = m_currentFrameInfo.timeStamp;
+#ifdef DBG
+    // Normally it must never happen
+    if (!m_currentFrame) {
+        throw std::runtime_error("Invalid state detected at frame request: current frame must be non-empty");
+    }
+#endif
 
-    return S_OK;
+    // Grab frame
+    ComPtr<IDXGIResource1> res;
+    m_currentFrame->QueryInterface(IID_PPV_ARGS(&res));
+
+    HRESULT hr = res->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &info.frameHandle);
+    if (SUCCEEDED(hr)) {
+        info.metadata = m_currentMetadata;
+    }
+
+    // ???
+    m_currentFrame.Reset();
+    return hr;
 }
 
 HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
     IDXGIResource* source = args.MetaData.pSurface;
 
-    ComPtr<ID3D11Texture2D> pTexture;
-    source->QueryInterface(IID_PPV_ARGS(&pTexture));
+    ComPtr<ID3D11Texture2D> pSourceTexture;
+    source->QueryInterface(IID_PPV_ARGS(&pSourceTexture));
 
-    D3D11_TEXTURE2D_DESC desc = {};
-    desc.Usage = D3D11_USAGE_STAGING;
-    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    D3D11_TEXTURE2D_DESC desc;
+    pSourceTexture->GetDesc(&desc);
+    // Cannot create STAGING and SHARED_NTHANDLE texture
+    // IddCx texture has SHARED_NTHANDLE misc flag by default
+    //desc.Usage = D3D11_USAGE_STAGING;
+    //desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
-    ComPtr<ID3D11Texture2D> pRequestedTexture;
-    HRESULT hr = m_pDevice->CreateTexture2D(&desc, nullptr, &pRequestedTexture);
+#ifdef DBG
+    if (m_currentFrame) {
+        throw std::runtime_error("Invalid state detected while copying frame: current frame must be empty by design");
+    }
+#endif // DBG
+
+    HRESULT hr = m_pDevice->CreateTexture2D(&desc, nullptr, &m_currentFrame);
     if (SUCCEEDED(hr)) {
-        m_pDeviceContext->CopyResource(pTexture.Get(), pRequestedTexture.Get());
-
-        ComPtr<IDXGIResource1> pRequestedFrame;
-        pRequestedTexture->QueryInterface(IID_PPV_ARGS(&pRequestedFrame));
-
-        hr = pRequestedFrame->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &m_currentFrameInfo.frameHandle);
-        if (SUCCEEDED(hr)) {
-            m_currentFrameInfo.timeStamp = args.MetaData.PresentDisplayQPCTime;
-        }
+        m_pDeviceContext->CopyResource(pSourceTexture.Get(), m_currentFrame.Get());
+        m_currentMetadata = {
+            .timeStamp = args.MetaData.PresentDisplayQPCTime,
+            .frameNumber = args.MetaData.PresentationFrameNumber
+        };
     }
     return S_OK;
 }

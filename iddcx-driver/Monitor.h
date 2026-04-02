@@ -19,13 +19,13 @@ class MonitorProcessor {
     using BufferArgs = IDARG_OUT_RELEASEANDACQUIREBUFFER;
     using Bool = unsigned int;
 public:
-    static constexpr auto MAX_STOP_WAIT = 10'000U;
+    static constexpr auto MAX_STOP_WAIT  = 5'000U;
     static constexpr auto MAX_FRAME_WAIT = 5'000U;
 
     MonitorProcessor(IDDCX_SWAPCHAIN swapChain, HANDLE hNextSurfaceAvailable);
     ~MonitorProcessor();
 
-    MD_CLASS_PTR_ONLY(MonitorProcessor);
+    MD_CLASS_PTR_ONLY(MonitorProcessor)
 
     HRESULT Init(LUID adapterLuid);
     HRESULT Start();
@@ -45,7 +45,9 @@ private:
 
     Bool m_frameRequested;
     HANDLE m_frameReadyEvent;
-    FRAME_MONITOR_INFO m_currentFrameInfo;
+
+    ComPtr<ID3D11Texture2D> m_currentFrame;
+    FRAME_MONITOR_INFO::METADATA m_currentMetadata;
 
     ComPtr<ID3D11Device3> m_pDevice;
     ComPtr<ID3D11DeviceContext3> m_pDeviceContext;
@@ -55,8 +57,7 @@ struct MonitorContext {
     MonitorContext(IDDCX_MONITOR Monitor);
     ~MonitorContext();
 
-    MonitorContext(const MonitorContext&) = delete;
-    MonitorContext& operator=(const MonitorContext&) = delete;
+    MD_CLASS_PTR_ONLY(MonitorContext)
 
     void SetupMonitor(const ADAPTER_MONITOR_INFO* pMonitirInfo);
     const MonitorMode& PreferredMode() const;

@@ -8,6 +8,7 @@
 #include "iddcx.h"
 
 struct AdapterContext {
+    static constexpr auto EDID_PROVIDED = true;
     static constexpr auto MAX_MONITOR_COUNT = Monidroid::MAX_MONITORS_SUPPORTED;
     static constexpr auto REENCODES_COUNT = 1;
 
@@ -19,7 +20,7 @@ struct AdapterContext {
 
     NTSTATUS Init();
 
-    NTSTATUS ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo, bool edidProvided = true);
+    NTSTATUS ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo);
     NTSTATUS DisconnectMonitor(ADAPTER_MONITOR_INFO* monitorInfo);
 
     NTSTATUS FrameRequest(FRAME_MONITOR_INFO* pFrameInfo);
