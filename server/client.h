@@ -37,7 +37,7 @@ public:
     void allocFrameBuffer(int width, int height);
     void initPipeline();
 
-    void grabAndSend(const std::unique_ptr<ColorType[]>& frameData, const int dataPixSize);
+    void sendFullFrame(const ColorType* frameData, const unsigned int dataPixSize);
 
 public:
     Client(ip::tcp::socket socket);

@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) try {
     
     context.stop();
     return 0;
-} catch (const std::runtime_error &e) {
+} catch (const std::exception &e) {
     Monidroid::DefaultLog("ERROR: {}", e.what());
     return -1;
 }

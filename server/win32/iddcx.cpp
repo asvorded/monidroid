@@ -16,16 +16,19 @@ static constexpr int RETRY_INTERVAL = 500;
 
 static constexpr auto HEALTH_CHECK_TAG = L"IddCx health check";
 
-static constexpr auto ADAPTER_TAG = L"Monidroid Adapter";
+static constexpr auto ADAPTER_TAG = "Monidroid Adapter";
 
-static constexpr auto MONITOR_TAG = L"Monidroid Monitor";
+static constexpr auto MONITOR_TAG = "<unnamed monitor>";
 
 struct AdapterContext {
+    AdapterContext(HANDLE handle);
     ~AdapterContext();
 
 public:
     HANDLE handle;
 };
+
+AdapterContext::AdapterContext(HANDLE handle) : handle(handle) {}
 
 AdapterContext::~AdapterContext() {
     CloseHandle(handle);
@@ -39,6 +42,7 @@ struct MonitorContext {
 public:
     std::weak_ptr<AdapterContext> adapter;
 
+    std::string modelName;
     MonitorMode currentMode;
 
     UINT connectorIndex;
@@ -51,8 +55,8 @@ public:
 };
 
 MonitorContext::~MonitorContext() {
-    CloseHandle(driverProcess);
-    CloseHandle(thisProcess);
+    if (driverProcess != NULL) CloseHandle(driverProcess);
+    if (thisProcess != NULL) CloseHandle(thisProcess);
 }
 
 HRESULT MonitorContext::Init() {
@@ -81,10 +85,14 @@ HRESULT MonitorContext::Init() {
     return hr;
 }
 
+void MonitorContextDeleter::operator()(MonitorContext* p) const {
+    delete p;
+}
+
 static void WINAPI CreationCallback(
     _In_ HSWDEVICE hSwDevice,
     _In_ HRESULT hrCreateResult,
-    _In_opt_ PVOID pContext,
+    _In_ PVOID pContext,
     _In_ PCWSTR pszDeviceInstanceId
 ) {
     HANDLE hEvent = *(HANDLE*)pContext;
@@ -96,26 +104,27 @@ static void WINAPI CreationCallback(
 
 static HRESULT CreateVirtualAdapter() {
     HANDLE hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    HSWDEVICE hSwDevice;
-    SW_DEVICE_CREATE_INFO createInfo = { 0 };
-    PCWSTR description = L"Monidroid SWD graphics adapter";
+    if (hEvent == NULL) {
+        DWORD err = GetLastError();
+        Monidroid::TaggedLog(HEALTH_CHECK_TAG, L"Failed to create adapter: CreateEvent() failed with {}", err);
+        return HRESULT_FROM_WIN32(err);
+    }
 
-    // These match the Pnp id's in the inf file so OS will load the driver when the device is created
-    PCWSTR instanceId = L"0001";
-    PCWSTR hardwareIds = L"MonidroidDriver\0\0";
-    PCWSTR compatibleIds = L"MonidroidDriver\0\0";
-
-    createInfo.cbSize = sizeof(createInfo);
-    createInfo.pszzCompatibleIds = compatibleIds;
-    createInfo.pszInstanceId = instanceId;
-    createInfo.pszzHardwareIds = hardwareIds;
-    createInfo.pszDeviceDescription = description;
-
-    createInfo.CapabilityFlags = SWDeviceCapabilitiesRemovable |
-        SWDeviceCapabilitiesSilentInstall |
-        SWDeviceCapabilitiesDriverRequired;
+    SW_DEVICE_CREATE_INFO createInfo = {
+        .cbSize = sizeof(createInfo),
+        // These match the Pnp id's in the inf file so
+        // OS will load the driver when the device is created
+        .pszInstanceId = L"0001",
+        .pszzHardwareIds = L"MonidroidDriver\0\0",
+        .pszzCompatibleIds = L"MonidroidDriver\0\0",
+        .CapabilityFlags = SWDeviceCapabilitiesRemovable |
+            SWDeviceCapabilitiesSilentInstall |
+            SWDeviceCapabilitiesDriverRequired,
+        .pszDeviceDescription = L"Monidroid SWD graphics adapter",
+    };
 
     // Create the device
+    HSWDEVICE hSwDevice;
     HRESULT hr = SwDeviceCreate(L"MonidroidDriver", L"HTREE\\ROOT\\0",
         &createInfo, 0, nullptr, CreationCallback, &hEvent, &hSwDevice);
     if (FAILED(hr)) {
@@ -153,7 +162,7 @@ void videoHealthCheck() noexcept(false) {
 		if (!manuallyCreated) {
             HRESULT hr = CreateVirtualAdapter();
             if (FAILED(hr)) {
-                throw std::runtime_error("Unable to continue because Monidroid Graphics Adapter cannot be created!");
+                throw std::system_error(hr, std::system_category(), "Unable to continue because Monidroid Graphics Adapter cannot be created!");
             }
             manuallyCreated = true;
         } else {
@@ -170,13 +179,14 @@ Adapter openAdapter() {
         nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
     );
     if (hAdapter == INVALID_HANDLE_VALUE) {
+        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to open adapter, error code: {}", GetLastError());
         return Adapter();
     }
 
-    return Adapter(new AdapterContext { .handle = hAdapter });
+    return Adapter(new AdapterContext(hAdapter));
 }
 
-Monitor adapterConnectMonitor(const Adapter& adapter, const MonitorMode& info) {
+Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelName, const MonitorMode& info) {
     ADAPTER_MONITOR_INFO monitorInfo {
         .monitorNumberBySocket = INVALID_SOCKET,
         .width = info.width,
@@ -191,18 +201,19 @@ Monitor adapterConnectMonitor(const Adapter& adapter, const MonitorMode& info) {
         &monitorInfo, sizeof(monitorInfo), &monitorInfoOut, sizeof(monitorInfoOut),
         &bytesReceived, NULL)
     ) {
-        Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to connect monitor, error code: {}", GetLastError());
+        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to connect monitor, error code: {}", GetLastError());
         return Monitor();
     }
 
     HANDLE hDriverProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, monitorInfoOut.driverProcessId);
     if (hDriverProcess == NULL) {
-        Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to initialize monitor (open driver process failed), error code: {}", GetLastError());
+        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to initialize monitor (open driver process failed), error code: {}", GetLastError());
         return Monitor();
     }
 
     Monitor monitor = Monitor(new MonitorContext {
         .adapter = adapter,
+        .modelName = modelName.empty() ? MONITOR_TAG : modelName,
         .currentMode = info,
         .connectorIndex = monitorInfoOut.connectorIndex,
         .adapterLuid = monitorInfoOut.adapterLuid,
@@ -211,14 +222,14 @@ Monitor adapterConnectMonitor(const Adapter& adapter, const MonitorMode& info) {
 
     HRESULT hr = monitor->Init();
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to initialize monitor, error code: {}", GetLastError());
+        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to initialize monitor, error code: {}", GetLastError());
         return Monitor();
     }
 
     return monitor;
 }
 
-MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]>& buffer, int& bufferPixSize) {
+MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]>& buffer, unsigned int& bufferPixSize) {
     Adapter adapter = monitor->adapter.lock();
     if (!adapter) {
         throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter!");
@@ -232,6 +243,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]
         &frameInfo, sizeof(frameInfo), &frameInfoOut, sizeof(frameInfoOut),
         &bytesReceived, nullptr)
     ) {
+        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DeviceIoControl() error code: {}", GetLastError());
         return MDStatus::NotAvailable; // TODO
     }
 
@@ -242,7 +254,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]
         monitor->thisProcess, &thisFrameHandle,
         0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
     )) {
-        Monidroid::TaggedLog(MONITOR_TAG, L"Failed to open frame resource, error code: {}", GetLastError());
+        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DuplicateHandle() error code: {}", GetLastError());
         CloseHandle(frameInfoOut.frameHandle);
         return MDStatus::Error;
     }
@@ -250,7 +262,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]
     ComPtr<ID3D11Texture2D> sharedTexture;
     HRESULT hr = monitor->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(MONITOR_TAG, L"Failed to open frame resource, HRESULT: {:#010X}", hr);
+        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, HRESULT: {:#010X}", hr);
         return MDStatus::Error;
     }
 
@@ -259,7 +271,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]
     D3D11_TEXTURE2D_DESC desc;
     sharedTexture->GetDesc(&desc);
     if (desc.Width != monitor->currentMode.width || desc.Height != monitor->currentMode.height) {
-        Monidroid::TaggedLog(MONITOR_TAG, L"Frame request is not performed due to mode change");
+        Monidroid::TaggedLog(monitor->modelName, "Frame request is not performed due to mode change");
         return MDStatus::ModeChanged;
     }
 
@@ -271,7 +283,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]
     D3D11_MAPPED_SUBRESOURCE mapped;
     hr = monitor->m_deviceContext->Map(sharedTexture.Get(), 0, D3D11_MAP_READ, 0, &mapped);
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(MONITOR_TAG, L"Failed to copy frame, HRESULT: {:#010X}", hr);
+        Monidroid::TaggedLog(monitor->modelName, "Failed to copy frame, Map() HRESULT: {:#010X}", hr);
         return MDStatus::Error;
     }
 
@@ -302,10 +314,10 @@ void monitorDisconnect(Monitor& monitor) {
 
         if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_MONITOR_DISCONNECT,
             &monitorInfo, sizeof(monitorInfo), &monitorInfoOut, sizeof(monitorInfoOut), &bytesReceived, NULL)) {
-            Monidroid::TaggedLog(ADAPTER_TAG, L"Failed to disconnect monitor, error code: {}", GetLastError());
+            Monidroid::TaggedLog(ADAPTER_TAG, "Failed to disconnect \"{}\", error code: {}", monitor->modelName, GetLastError());
         }
     } else {
-        Monidroid::TaggedLog(MONITOR_TAG, L"Adapter is inaccessible, ignoring disconnect request...");
+        Monidroid::TaggedLog(monitor->modelName, "Adapter is inaccessible, ignoring disconnect request...");
     }
     monitor.reset();
 }

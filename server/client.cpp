@@ -10,7 +10,10 @@
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"
 
-Client::Client(ip::tcp::socket socket) : m_socket(std::move(socket)) {
+Client::Client(ip::tcp::socket socket)
+  : m_socket(std::move(socket)),
+    m_preffered()
+{
     m_netBuffer.reserve(7u + 4 + 12);
 }
 
@@ -91,14 +94,15 @@ bool Client::identifyClient() {
 
             m_netBuffer.erase(m_netBuffer.begin(), m_netBuffer.begin() + bytesNeeded);
             bytesNeeded = 0;
-            return true;
         }
         }
     }
+
+    return true;
 }
 
 bool Client::connectMonitor(const Adapter &adapter) {
-    m_monitor = adapterConnectMonitor(adapter, m_preffered);
+    m_monitor = adapterConnectMonitor(adapter, m_modelName, m_preffered);
     if (!m_monitor) {
         return false;
     }
@@ -122,14 +126,16 @@ void Client::sendFrames() {
     m_state = ClientState::Streaming;
 
     std::unique_ptr<ColorType[]> frameData;
-    int dataPixSize;
+    unsigned int dataPixSize;
 
     m_sending = true;
     while (m_sending) {
         MDStatus status = monitorRequestFrame(m_monitor, frameData, dataPixSize);
-        if (status == MDStatus::Error) {
+        if (status != MDStatus::Ok) {
             m_sending = false;
         }
+
+        sendFullFrame(frameData.get(), dataPixSize);
     }
 }
 
@@ -141,7 +147,7 @@ void Client::initPipeline() {
     //
 }
 
-void Client::grabAndSend(const std::unique_ptr<ColorType[]> &frameData, const int dataPixSize) {
+void Client::sendFullFrame(const ColorType* frameData, const unsigned int sizeInPixels) {
     tjhandle tj = tj3Init(TJINIT_COMPRESS);
     unsigned char *jpegData = static_cast<unsigned char*>(tj3Alloc(1));
     size_t _jpegsize = 0;
@@ -151,9 +157,10 @@ void Client::grabAndSend(const std::unique_ptr<ColorType[]> &frameData, const in
 
     MonitorMode mode;
     monitorRequestMode(m_monitor, mode, true);
-        
+       
+    // TODO assert: mode.width * mode.height == sizeInPixels
     int code = tj3Compress8(tj,
-        reinterpret_cast<const uint8_t*>(frameData.get()),
+        reinterpret_cast<const uint8_t*>(frameData),
         mode.width, 0, mode.height, TJPF_RGBA,
         &jpegData, &_jpegsize
     );

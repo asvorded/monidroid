@@ -4,8 +4,7 @@
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor)
   : m_monitor(Monitor),
-    m_preffered(),
-    m_lock(Monitor)
+    m_preffered()
 { }
 
 MonitorContext::~MonitorContext() { }
@@ -21,8 +20,6 @@ const MonitorMode& MonitorContext::PreferredMode() const {
 }
 
 HRESULT MonitorContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable) {
-    std::lock_guard<WdfMutex> g(m_lock);
-
     m_pProcessor.reset(new MonitorProcessor(SwapChain, hNextSurfaceAvailable));
     HRESULT hr = m_pProcessor->Init(AdapterLuid);
     if (SUCCEEDED(hr)) {
@@ -34,16 +31,11 @@ HRESULT MonitorContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID AdapterL
 }
 
 void MonitorContext::UnassignSwapChain() {
-    std::lock_guard<WdfMutex> g(m_lock);
-    
     m_pProcessor->Stop();
     m_pProcessor.reset();
 }
 
 HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO* pInfo) {
-    std::lock_guard<WdfMutex> g(m_lock);
-    
-    HRESULT hr;
     if (m_pProcessor) {
         return m_pProcessor->RequestFrame(*pInfo);
     } else {
@@ -131,7 +123,7 @@ DWORD MonitorProcessor::ThreadProc(void* arg) {
     HANDLE AvTaskHandle = AvSetMmThreadCharacteristicsW(L"Distribution", &AvTask);
 
     auto* self = static_cast<MonitorProcessor*>(arg);
-    HRESULT hr = self->StartPrivate();
+    self->StartPrivate();
     
     WdfObjectDelete(self->m_swapChain);
     self->m_swapChain = nullptr;

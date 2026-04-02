@@ -24,9 +24,9 @@ DEFINE_GUID(MonidroidGroupGuid, 0xadf1470d, 0x14d2, 0x46ad, 0x94, 0x99, 0x89, 0x
 
 struct ADAPTER_MONITOR_INFO {
     _In_ SOCKET monitorNumberBySocket; // IN
-    _In_ int width;                    // IN
-    _In_ int height;                   // IN
-    _In_ int hertz;                    // IN
+    _In_ unsigned int width;           // IN
+    _In_ unsigned int height;          // IN
+    _In_ unsigned int hertz;           // IN
 
     _Out_ UINT connectorIndex;         // OUT
     _Out_ LUID adapterLuid;            // OUT

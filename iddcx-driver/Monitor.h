@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 #include <system_error>
 
 #include <Windows.h>
@@ -15,22 +14,6 @@
 
 using namespace Microsoft::WRL;
 using namespace Monidroid;
-
-class WdfMutex {
-public:
-    WdfMutex(WDFOBJECT m) : m(m) { }
-
-    void lock() {
-        WdfObjectAcquireLock(m);
-    }
-
-    void unlock() {
-        WdfObjectReleaseLock(m);
-    }
-
-private:
-    WDFOBJECT m;
-};
 
 class MonitorProcessor {
     using BufferArgs = IDARG_OUT_RELEASEANDACQUIREBUFFER;
@@ -86,8 +69,6 @@ struct MonitorContext {
 private:
     IDDCX_MONITOR m_monitor;
     MonitorMode m_preffered;
-
-    WdfMutex m_lock;
 
     std::unique_ptr<MonitorProcessor> m_pProcessor;
 };

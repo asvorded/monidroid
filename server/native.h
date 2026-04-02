@@ -1,13 +1,13 @@
 #pragma once
 
 #include <memory>
-#include <stdint.h>
+#include <string>
 
 #include "monidroid/edid.h"
 
 using namespace Monidroid;
 
-using ColorType = uint32_t;
+using ColorType = u32;
 
 enum class MDStatus {
 	Ok, NotAvailable, ModeChanged, BufferTooSmall, Error
@@ -15,12 +15,9 @@ enum class MDStatus {
 
 struct MonitorContext;
 struct MonitorContextDeleter {
-	void operator()(MonitorContext* p) const {
-		delete p;
-	}
+	void operator()(MonitorContext* p) const;
 };
 using Monitor = std::unique_ptr<MonitorContext, MonitorContextDeleter>;
-
 
 struct AdapterContext;
 using Adapter = std::shared_ptr<AdapterContext>;
@@ -29,9 +26,9 @@ void videoHealthCheck() noexcept(false);
 
 Adapter openAdapter();
 
-Monitor adapterConnectMonitor(const Adapter& adapter, const MonitorMode& info);
+Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelName, const MonitorMode& info);
 
-MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]>& buffer, int& bufferPixSize) noexcept(false);
+MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]>& buffer, unsigned int& bufferPixSize) noexcept(false);
 
 void monitorRequestMode(const Monitor& monitor, MonitorMode& infoOut, bool cached);
 
