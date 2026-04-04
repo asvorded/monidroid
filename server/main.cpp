@@ -1,7 +1,6 @@
-#include <errno.h>
-
 #include <iostream>
 #include <thread>
+#include <csignal>
 
 #include <gst/gst.h>
 
@@ -18,38 +17,35 @@ static void usage() {
         "Monidroid Linux server version " MONIDROID_SERVICE_VERSION "\n"
         "Options:\n"
         "--help            Print help" "\n"
-        "--no-service      Start as a console application" "\n"
+        "--terminal        Start as a console application" "\n"
 #elif defined(_WIN32)
         "Monidroid Windows server version " MONIDROID_SERVICE_VERSION "\n"
         "Options:\n"
         "--help            Print help" "\n"
         "--install         Install as a Windows service" "\n"
         "--uninstall       Uninstall Windows service" "\n"
-        "--no-service      Start as a console application" "\n"
+        "--terminal        Start as a console application" "\n"
 #endif
     ;
 }
 
-using namespace Monidroid;
+boost::asio::io_context context;
 
-int main(int argc, char *argv[]) {
-    bool runAsService = true;
-
+int main(int argc, char *argv[]) try {
     if (argc == 2) {
 		std::string command(argv[1]);
 		if (command == "--help") {
             usage();
             return 0;
-        } else if (command == "--no-service") {
-			runAsService = false;
+        } else if (command == "--terminal") {
             Monidroid::DefaultLog("Starting as console applicaion...");
 		} else {
 			std::cout << "Unknown option. Use --help to get available options." << '\n';
-            return EINVAL;
+            return -1;
 		}
 	} else if (argc != 1) {
         std::cout << "Invalid usage. Use --help to get more info." << '\n';
-        return EINVAL;
+        return -1;
     }
 
     gst_init(&argc, &argv);
@@ -60,8 +56,6 @@ int main(int argc, char *argv[]) {
 
     // Video adapter health check
     videoHealthCheck();
-
-    boost::asio::io_context context;
     
     EchoServer echoServer(context);
     echoServer.start();
@@ -69,19 +63,19 @@ int main(int argc, char *argv[]) {
     Server server(context);
     server.start();
     
-    std::jthread t([&]() {
-        context.run();
+    // Main loop, main thread is running until this context is stopped
+    context.run();
+    
+    std::signal(SIGINT, [](int signal) {
+        Monidroid::DefaultLog("Stop requested, shutting down the server...");
+
+        context.stop();
     });
     
-    if (!runAsService) {
-        std::cout << "Started. Accepting connections...\n";
-        
-        std::cout << "Press ENTER to stop.\n";
-        std::cin.get();
-        
-        std::cout << "Stopping...\n";
-    }
-    
-    context.stop();
     return 0;
+} catch (const std::exception& e) {
+    Monidroid::DefaultLog("ERROR: {}", e.what());
+    Monidroid::DefaultLog("Exiting due to critical error");
+
+    return -1;
 }
