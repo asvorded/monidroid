@@ -125,17 +125,19 @@ void Client::sendFrames() {
 
     m_state = ClientState::Streaming;
 
-    std::unique_ptr<ColorType[]> frameData;
+    FrameMapInfo info;
     unsigned int dataPixSize;
 
-    m_sending = true;
-    while (m_sending) {
-        MDStatus status = monitorRequestFrame(m_monitor, frameData, dataPixSize);
+    while (true) {
+        MDStatus status = monitorRequestFrame(m_monitor);
         if (status != MDStatus::Ok) {
-            m_sending = false;
+            break;
         }
 
-        sendFullFrame(frameData.get(), dataPixSize);
+        monitorMapCurrent(m_monitor, info);
+        if (info.data != nullptr) {
+            sendFullFrame(info);
+        }
     }
 }
 
@@ -147,7 +149,7 @@ void Client::initPipeline() {
     //
 }
 
-void Client::sendFullFrame(const ColorType* frameData, const unsigned int sizeInPixels) {
+void Client::sendFullFrame(const FrameMapInfo& info) {
     tjhandle tj = tj3Init(TJINIT_COMPRESS);
     unsigned char *jpegData = static_cast<unsigned char*>(tj3Alloc(1));
     size_t _jpegsize = 0;
@@ -155,13 +157,9 @@ void Client::sendFullFrame(const ColorType* frameData, const unsigned int sizeIn
     tj3Set(tj, TJPARAM_QUALITY, 50);
     tj3Set(tj, TJPARAM_SUBSAMP, TJSAMP_422);
 
-    MonitorMode mode;
-    monitorRequestMode(m_monitor, mode, true);
-       
-    // TODO assert: mode.width * mode.height == sizeInPixels
     int code = tj3Compress8(tj,
-        reinterpret_cast<const uint8_t*>(frameData),
-        mode.width, 0, mode.height, TJPF_RGBA,
+        reinterpret_cast<const uint8_t*>(info.data),
+        info.width, 0, info.height, TJPF_BGRA,
         &jpegData, &_jpegsize
     );
 

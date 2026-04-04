@@ -17,7 +17,7 @@ static inline DISPLAYCONFIG_VIDEO_SIGNAL_INFO MakeSignalInfo(const MonitorMode& 
         .totalSize { .cx = mode.width, .cy = mode.height },
         .AdditionalSignalInfo {
             // <d3dkmdt.h> generally cannot be included in UMD, so enum value is replaced
-            .videoStandard = 3, // D3DKMDT_VSS_VESA_CVT
+            .videoStandard = 255, // ??? D3DKMDT_VSS_VESA_CVT
             .vSyncFreqDivider = vSyncFreqDivider,
         },
         .scanLineOrdering = DISPLAYCONFIG_SCANLINE_ORDERING_PROGRESSIVE
@@ -280,7 +280,7 @@ NTSTATUS MdEvtMonitorQueryTargetModes(
         return (pInArgs->TargetModeBufferInputCount > 0) ? STATUS_BUFFER_TOO_SMALL : STATUS_SUCCESS;
     }
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < modesCount; i++) {
         auto mode = i == 0 ? context->self->PreferredMode() : CUSTOM_EDID_MODES[i];
         pInArgs->pTargetModes[i] = {
             .Size = sizeof(*pInArgs->pTargetModes),

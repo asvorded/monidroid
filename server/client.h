@@ -37,7 +37,7 @@ public:
     void allocFrameBuffer(int width, int height);
     void initPipeline();
 
-    void sendFullFrame(const ColorType* frameData, const unsigned int dataPixSize);
+    void sendFullFrame(const FrameMapInfo& info);
 
 public:
     Client(ip::tcp::socket socket);

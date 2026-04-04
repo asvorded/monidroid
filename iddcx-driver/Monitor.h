@@ -22,12 +22,12 @@ public:
     static constexpr auto MAX_STOP_WAIT  = 5'000U;
     static constexpr auto MAX_FRAME_WAIT = 5'000U;
 
-    MonitorProcessor(IDDCX_SWAPCHAIN swapChain, HANDLE hNextSurfaceAvailable);
+    MonitorProcessor(IDDCX_SWAPCHAIN swapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable);
     ~MonitorProcessor();
 
     MD_CLASS_PTR_ONLY(MonitorProcessor)
 
-    HRESULT Init(LUID adapterLuid);
+    HRESULT Init();
     HRESULT Start();
     void Stop() noexcept(false);
     HRESULT RequestFrame(FRAME_MONITOR_INFO& info);
@@ -40,6 +40,7 @@ private:
 private:
     IDDCX_SWAPCHAIN m_swapChain;
     HANDLE m_newFrameEvent;
+    LUID m_adapterLuid;
     HANDLE m_thread;
     HANDLE m_stopEvent;
 
@@ -65,7 +66,7 @@ struct MonitorContext {
     HRESULT AssignSwapChain(IDDCX_SWAPCHAIN swapchain, LUID adapterLuid, HANDLE hNextSurfaceAvailable);
     void UnassignSwapChain();
 
-    HRESULT RequestFrame(FRAME_MONITOR_INFO* pInfo);
+    HRESULT RequestFrame(FRAME_MONITOR_INFO& info);
 
 private:
     IDDCX_MONITOR m_monitor;

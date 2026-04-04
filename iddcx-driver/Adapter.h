@@ -8,7 +8,7 @@
 #include "iddcx.h"
 
 struct AdapterContext {
-    static constexpr auto EDID_PROVIDED = true;
+    static constexpr auto EDID_PROVIDED = false;
     static constexpr auto MAX_MONITOR_COUNT = Monidroid::MAX_MONITORS_SUPPORTED;
     static constexpr auto REENCODES_COUNT = 1;
 

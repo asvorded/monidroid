@@ -1,6 +1,7 @@
 #include "Monitor.h"
 
 #include <avrt.h>
+#include <sddl.h>
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor)
   : m_monitor(Monitor),
@@ -10,23 +11,35 @@ MonitorContext::MonitorContext(IDDCX_MONITOR Monitor)
 MonitorContext::~MonitorContext() { }
 
 void MonitorContext::SetupMonitor(const ADAPTER_MONITOR_INFO* pMonitirInfo) {
-    m_preffered.width = pMonitirInfo->width;
-    m_preffered.height = pMonitirInfo->height;
-    m_preffered.refreshRate = pMonitirInfo->hertz;
+    m_preffered = {
+        .width = pMonitirInfo->width,
+        .height = pMonitirInfo->height,
+        .refreshRate = pMonitirInfo->hertz,
+    };
 }
 
 const MonitorMode& MonitorContext::PreferredMode() const {
     return m_preffered;
 }
 
+
 HRESULT MonitorContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable) {
-    m_pProcessor.reset(new MonitorProcessor(SwapChain, hNextSurfaceAvailable));
-    HRESULT hr = m_pProcessor->Init(AdapterLuid);
+    if (m_pProcessor) {
+        // Swap-chain is being reassigned, stop current processor
+        m_pProcessor->Stop();
+    }
+
+    m_pProcessor.reset(new MonitorProcessor(SwapChain, AdapterLuid, hNextSurfaceAvailable));
+    HRESULT hr = m_pProcessor->Init();
     if (SUCCEEDED(hr)) {
         hr = m_pProcessor->Start();
-    } else {
-        m_pProcessor.reset();
+        if (SUCCEEDED(hr)) {
+            return hr;
+        }
     }
+
+    // There is failure here
+    m_pProcessor.reset();
     return hr;
 }
 
@@ -35,26 +48,33 @@ void MonitorContext::UnassignSwapChain() {
     m_pProcessor.reset();
 }
 
-HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO* pInfo) {
+HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO& info) {
+    info.adapterLuid = { };
+    info.frameHandle = { };
+    info.metadata = { };
+
     if (m_pProcessor) {
-        return m_pProcessor->RequestFrame(*pInfo);
+        HRESULT hr = m_pProcessor->RequestFrame(info);
+        info.metadata.enabled = SUCCEEDED(hr);
     } else {
-        // Monitor is off (?)
-        return E_NOT_VALID_STATE;
+        // Monitor is off (??)
+        info.metadata.enabled = false;
+        return S_OK;
     }
 }
 
-MonitorProcessor::MonitorProcessor(IDDCX_SWAPCHAIN swapChain, HANDLE hNextSurfaceAvailable)
+MonitorProcessor::MonitorProcessor(IDDCX_SWAPCHAIN swapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable)
   : m_swapChain(swapChain),
     m_newFrameEvent(hNextSurfaceAvailable),
-    m_stopEvent(),
-    m_frameReadyEvent(),
-    m_thread(),
+    m_stopEvent(NULL),
+    m_frameReadyEvent(NULL),
+    m_thread(NULL),
     m_frameRequested(false),
-    m_currentMetadata()
+    m_currentMetadata(),
+    m_adapterLuid(AdapterLuid)
 { }
 
-HRESULT MonitorProcessor::Init(LUID adapterLuid) {
+HRESULT MonitorProcessor::Init() {
     ComPtr<IDXGIFactory5> pFactory;
     ComPtr<IDXGIAdapter> pAdapter;
     ComPtr<ID3D11Device> pDevice;
@@ -63,11 +83,16 @@ HRESULT MonitorProcessor::Init(LUID adapterLuid) {
     HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory));
     if (FAILED(hr)) { return hr; }
 
-    hr = pFactory->EnumAdapterByLuid(adapterLuid, IID_PPV_ARGS(&pAdapter));
+    hr = pFactory->EnumAdapterByLuid(m_adapterLuid, IID_PPV_ARGS(&pAdapter));
     if (FAILED(hr)) { return hr; }
 
     hr = D3D11CreateDevice(
-        pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+        pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL,
+#ifdef DBG
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
+#else
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+#endif
         FEATURE_LEVELS, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice, nullptr, &pDeviceContext
     );
     if (FAILED(hr)) { return hr; }
@@ -154,7 +179,6 @@ HRESULT MonitorProcessor::StartPrivate() {
 
     IDARG_IN_SWAPCHAINSETDEVICE chainSetDevice { .pDevice = pSwapChainDevice.Get() };
     hr = IddCxSwapChainSetDevice(m_swapChain, &chainSetDevice);
-    // WTF is going on when it returns 0x887A0026 (DXGI_ERROR_ACCESS_LOST)?????
     if (FAILED(hr)) {
         return hr;
     }
@@ -213,42 +237,32 @@ HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO& info) {
     };
     DWORD result = WaitForMultipleObjects(ARRAYSIZE(waits), waits, false, MAX_FRAME_WAIT);
     switch (result) {
-    case WAIT_OBJECT_0:
+    case WAIT_OBJECT_0: {
         // Frame ready
-        break;
+        ComPtr<IDXGIResource1> res;
+        m_currentFrame->QueryInterface(IID_PPV_ARGS(&res));
+
+        HANDLE handle = NULL;
+        HRESULT hr = res->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &handle);
+        if (SUCCEEDED(hr)) {
+            info.metadata = m_currentMetadata;
+            info.frameHandle = handle;
+            info.adapterLuid = m_adapterLuid;
+        }
+
+        return hr;
+    }
     case WAIT_OBJECT_0 + 1:
+        // Processor suddenly stopped
+        // maybe: 1) mode change, 2) internal error
         return E_ABORT;
-        break;
     case WAIT_TIMEOUT:
-        // Normally it must never happen
-#ifdef DBG
-        throw std::system_error(ERROR_TIMEOUT, std::system_category(), "Unexpected frame request detected");
-#endif
-        return HRESULT_FROM_WIN32(ERROR_TIMEOUT);
-        break;
-    default:
-        return E_UNEXPECTED;
+        // No pending desktop updates
+        return S_OK;
     }
 
-#ifdef DBG
-    // Normally it must never happen
-    if (!m_currentFrame) {
-        throw std::runtime_error("Invalid state detected at frame request: current frame must be non-empty");
-    }
-#endif
-
-    // Grab frame
-    ComPtr<IDXGIResource1> res;
-    m_currentFrame->QueryInterface(IID_PPV_ARGS(&res));
-
-    HRESULT hr = res->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &info.frameHandle);
-    if (SUCCEEDED(hr)) {
-        info.metadata = m_currentMetadata;
-    }
-
-    // ???
-    m_currentFrame.Reset();
-    return hr;
+    // Unexpected failure    
+    return E_UNEXPECTED;
 }
 
 HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
@@ -261,18 +275,13 @@ HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
     pSourceTexture->GetDesc(&desc);
     // Cannot create STAGING and SHARED_NTHANDLE texture
     // IddCx texture has SHARED_NTHANDLE misc flag by default
-    //desc.Usage = D3D11_USAGE_STAGING;
-    //desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
-#ifdef DBG
-    if (m_currentFrame) {
-        throw std::runtime_error("Invalid state detected while copying frame: current frame must be empty by design");
-    }
-#endif // DBG
+    // Destroy previous frame
+    m_currentFrame.Reset();
 
     HRESULT hr = m_pDevice->CreateTexture2D(&desc, nullptr, &m_currentFrame);
     if (SUCCEEDED(hr)) {
-        m_pDeviceContext->CopyResource(pSourceTexture.Get(), m_currentFrame.Get());
+        m_pDeviceContext->CopyResource(m_currentFrame.Get(), pSourceTexture.Get());
         m_currentMetadata = {
             .timeStamp = args.MetaData.PresentDisplayQPCTime,
             .frameNumber = args.MetaData.PresentationFrameNumber

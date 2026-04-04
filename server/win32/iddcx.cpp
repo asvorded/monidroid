@@ -37,8 +37,6 @@ AdapterContext::~AdapterContext() {
 struct MonitorContext {
     ~MonitorContext();
 
-    HRESULT Init();
-
 public:
     std::weak_ptr<AdapterContext> adapter;
 
@@ -48,41 +46,17 @@ public:
     UINT connectorIndex;
     LUID adapterLuid;
     HANDLE driverProcess = NULL;
-    HANDLE thisProcess = NULL;
+    HANDLE thisProcess = GetCurrentProcess();
 
     ComPtr<ID3D11Device3> m_device;
     ComPtr<ID3D11DeviceContext3> m_deviceContext;
+
+    ComPtr<ID3D11Texture2D> currentFrame;
 };
 
 MonitorContext::~MonitorContext() {
     if (driverProcess != NULL) CloseHandle(driverProcess);
     if (thisProcess != NULL) CloseHandle(thisProcess);
-}
-
-HRESULT MonitorContext::Init() {
-    thisProcess = GetCurrentProcess();
-
-    ComPtr<IDXGIFactory5> pFactory;
-    ComPtr<IDXGIAdapter> pAdapter;
-    ComPtr<ID3D11Device> pDevice;
-    ComPtr<ID3D11DeviceContext> pDeviceContext;
-
-    HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory));
-    if (FAILED(hr)) { return hr; }
-
-    hr = pFactory->EnumAdapterByLuid(adapterLuid, IID_PPV_ARGS(&pAdapter));
-    if (FAILED(hr)) { return hr; }
-
-    hr = D3D11CreateDevice(
-        pAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-        FEATURE_LEVELS, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice, NULL, &pDeviceContext
-    );
-    if (FAILED(hr)) { return hr; }
-
-    pDevice->QueryInterface(IID_PPV_ARGS(&m_device));
-    pDeviceContext->QueryInterface(IID_PPV_ARGS(&m_deviceContext));
-
-    return hr;
 }
 
 void MonitorContextDeleter::operator()(MonitorContext* p) const {
@@ -142,6 +116,41 @@ static HRESULT CreateVirtualAdapter() {
     return S_OK;
 }
 
+HRESULT CreateD3DDevice(LUID adapterLuid, ID3D11Device3** device, ID3D11DeviceContext3** deviceContext) {
+    ComPtr<IDXGIFactory5> pFactory;
+    ComPtr<IDXGIAdapter> pAdapter;
+    ComPtr<ID3D11Device> pDevice;
+    ComPtr<ID3D11DeviceContext> pDeviceContext;
+
+    HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory));
+    if (FAILED(hr)) { return hr; }
+
+    D3D_DRIVER_TYPE type;
+    if (adapterLuid.HighPart == 0 && adapterLuid.LowPart == 0) {
+        type = D3D_DRIVER_TYPE_HARDWARE;
+    } else {
+        hr = pFactory->EnumAdapterByLuid(adapterLuid, IID_PPV_ARGS(&pAdapter));
+        if (FAILED(hr)) { return hr; }
+        type = D3D_DRIVER_TYPE_UNKNOWN;
+    }
+
+    hr = D3D11CreateDevice(
+        pAdapter.Get(), type, NULL,
+#ifdef DEBUG
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
+#else
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+#endif
+        FEATURE_LEVELS, FEATURE_LEVELS_COUNT, D3D11_SDK_VERSION, &pDevice, NULL, &pDeviceContext
+    );
+    if (FAILED(hr)) { return hr; }
+
+    pDevice->QueryInterface(IID_PPV_ARGS(device));
+    pDeviceContext->QueryInterface(IID_PPV_ARGS(deviceContext));
+
+    return hr;
+}
+
 void videoHealthCheck() noexcept(false) {
 	bool manuallyCreated = false;
 
@@ -150,9 +159,6 @@ void videoHealthCheck() noexcept(false) {
 			GENERIC_READ | GENERIC_WRITE, 0,
 			nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
 		);
-#ifdef DEBUG
-        Monidroid::TaggedLog(HEALTH_CHECK_TAG, L"CreateFile() code: {}", GetLastError());
-#endif
         if (hAdapter != INVALID_HANDLE_VALUE) {
             Monidroid::TaggedLog(HEALTH_CHECK_TAG, L"Monidroid Graphics Adapter detected");
             CloseHandle(hAdapter);
@@ -220,87 +226,114 @@ Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelNa
         .driverProcess = hDriverProcess,
     });
 
-    HRESULT hr = monitor->Init();
-    if (FAILED(hr)) {
-        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to initialize monitor, error code: {}", GetLastError());
-        return Monitor();
-    }
-
     return monitor;
 }
 
-MDStatus monitorRequestFrame(const Monitor& monitor, std::unique_ptr<ColorType[]>& buffer, unsigned int& bufferPixSize) {
+MDStatus monitorRequestFrame(const Monitor& monitor) {
     Adapter adapter = monitor->adapter.lock();
     if (!adapter) {
         throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter!");
     }
 
-    FRAME_MONITOR_INFO frameInfo { .connectorIndex = monitor->connectorIndex };
-    FRAME_MONITOR_INFO frameInfoOut { };
+    FRAME_MONITOR_INFO in { .connectorIndex = monitor->connectorIndex };
+    FRAME_MONITOR_INFO out { };
     DWORD bytesReceived = -1;
 
     if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_REQUEST_FRAME,
-        &frameInfo, sizeof(frameInfo), &frameInfoOut, sizeof(frameInfoOut),
+        &in, sizeof(in), &out, sizeof(out),
         &bytesReceived, nullptr)
     ) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DeviceIoControl() error code: {}", GetLastError());
-        return MDStatus::NotAvailable; // TODO
+        Monidroid::TaggedLog(monitor->modelName, "Frame request failed, DeviceIoControl() error code: {}", GetLastError());
+        return MDStatus::Error; // TODO
     }
 
-    HANDLE thisFrameHandle;
+    // Check monitor power state
+    if (!out.metadata.enabled) {
+        return MDStatus::MonitorOff;
+    }
+    
+    // Duplicate driver's render adapter to open shared resources
+    if (out.adapterLuid != monitor->adapterLuid) {
+        monitor->m_device.Reset();
+        monitor->m_deviceContext.Reset();
+        HRESULT hr = CreateD3DDevice(out.adapterLuid, &monitor->m_device, &monitor->m_deviceContext);
+        if (FAILED(hr)) {
+            Monidroid::TaggedLog(monitor->modelName, "Failed to initialize D3D device, HRESULT: {:#010X}", (unsigned long)hr);
+            return MDStatus::Error;
+        }
+        monitor->adapterLuid = out.adapterLuid;
+    }
+
+    HANDLE thisFrameHandle = NULL;
 
     if (!DuplicateHandle(
-        monitor->driverProcess, frameInfoOut.frameHandle,
+        monitor->driverProcess, out.frameHandle,
         monitor->thisProcess, &thisFrameHandle,
         0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
     )) {
         Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DuplicateHandle() error code: {}", GetLastError());
-        CloseHandle(frameInfoOut.frameHandle);
+        CloseHandle(out.frameHandle);
         return MDStatus::Error;
     }
 
     ComPtr<ID3D11Texture2D> sharedTexture;
     HRESULT hr = monitor->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
+    CloseHandle(thisFrameHandle);
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, HRESULT: {:#010X}", hr);
+        Monidroid::TaggedLog(monitor->modelName, "D3D shared resource cannot be opened, HRESULT: {:#010X}", (unsigned long)hr);
         return MDStatus::Error;
     }
-
-    CloseHandle(thisFrameHandle);
 
     D3D11_TEXTURE2D_DESC desc;
     sharedTexture->GetDesc(&desc);
-    if (desc.Width != monitor->currentMode.width || desc.Height != monitor->currentMode.height) {
-        Monidroid::TaggedLog(monitor->modelName, "Frame request is not performed due to mode change");
-        return MDStatus::ModeChanged;
-    }
 
-    if (auto pixSize = desc.Width * desc.Height; pixSize > bufferPixSize) {
-        buffer = std::make_unique<ColorType[]>(pixSize);
-        bufferPixSize = pixSize;
-    }
-
-    D3D11_MAPPED_SUBRESOURCE mapped;
-    hr = monitor->m_deviceContext->Map(sharedTexture.Get(), 0, D3D11_MAP_READ, 0, &mapped);
+    // Create staging
+    desc.Usage = D3D11_USAGE_STAGING;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    desc.BindFlags = 0;
+    desc.MiscFlags = 0;
+    
+    monitor->currentFrame.Reset();
+    hr = monitor->m_device->CreateTexture2D(&desc, nullptr, &monitor->currentFrame);
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to copy frame, Map() HRESULT: {:#010X}", hr);
+        Monidroid::TaggedLog(monitor->modelName, "Failed to stage frame, HRESULT: {:#010X}", (unsigned long)hr);
         return MDStatus::Error;
     }
 
-    for (int y = 0; y < desc.Height; ++y) {
-        std::memcpy(
-            buffer.get() + y * desc.Width,
-            (uint8_t*)mapped.pData + y * mapped.RowPitch,
-            desc.Width * sizeof(*buffer.get())
-        );
-    }
+    monitor->m_deviceContext->CopyResource(monitor->currentFrame.Get(), sharedTexture.Get());
 
+    if (desc.Width != monitor->currentMode.width || desc.Height != monitor->currentMode.height) {
+        // TODO: Update current mode???
+        return MDStatus::ModeChanged;
+    }
     return MDStatus::Ok;
 }
 
-void monitorRequestMode(const Monitor& monitor, MonitorMode& infoOut, bool cached) {
+MonitorMode monitorRequestMode(const Monitor& self, bool cached) {
     // TODO: make non-cached
-    infoOut = monitor->currentMode;
+    return self->currentMode;
+}
+
+void monitorMapCurrent(const Monitor& self, FrameMapInfo& mapInfo) {
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    HRESULT hr = self->m_deviceContext->Map(self->currentFrame.Get(), 0, D3D11_MAP_READ, 0, &mapped);
+    if (SUCCEEDED(hr)) {
+        Monidroid::TaggedLog(self->modelName, "Frame mapping failed, HRESULT: {:#010X}", (unsigned long)hr);
+        D3D11_TEXTURE2D_DESC desc;
+        self->currentFrame->GetDesc(&desc);
+        mapInfo = {
+            .data = static_cast<ColorType*>(mapped.pData),
+            .width = desc.Width,
+            .height = desc.Height,
+            .stride = mapped.RowPitch
+        };
+    } else {
+        mapInfo = { };
+    }
+}
+
+void monitorUnmap(const Monitor& self) {
+    self->m_deviceContext->Unmap(self->currentFrame.Get(), 0);
 }
 
 void monitorDisconnect(Monitor& monitor) {

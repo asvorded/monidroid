@@ -151,7 +151,7 @@ NTSTATUS AdapterContext::FrameRequest(FRAME_MONITOR_INFO* pFrameInfo) {
     IDDCX_MONITOR monitorObject = connectedMonitors[pFrameInfo->connectorIndex].monitorObject;
     auto* pContext = WdfObjectGet_MonitorContextWrapper(monitorObject);
 
-    HRESULT hr = pContext->self->RequestFrame(pFrameInfo);
+    HRESULT hr = pContext->self->RequestFrame(*pFrameInfo);
     if (FAILED(hr)) {
         return NTSTATUS_FROM_WIN32(HRESULT_CODE(hr));
     }
