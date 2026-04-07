@@ -30,7 +30,7 @@ NTSTATUS AdapterContext::Init() {
             .pEndPointManufacturerName = L"<hidden>",
             .pHardwareVersion = &version,
             .pFirmwareVersion = &version,
-            .GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE, // #1
+            .GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE,
         },
         .StaticDesktopReencodeFrameCount = REENCODES_COUNT,
     };
@@ -54,6 +54,19 @@ NTSTATUS AdapterContext::Init() {
 
     auto* pContext = WdfObjectGet_AdapterContextWrapper(adapterInitOut.AdapterObject);
     pContext->self = this;
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS AdapterContext::CommitMode(const IDDCX_PATH& path) {
+    int idx = 0;
+    while (connectedMonitors[idx].monitorObject != path.MonitorObject && idx < MAX_MONITOR_COUNT) idx++;
+    if (idx == MAX_MONITOR_COUNT) {
+        return STATUS_NOT_FOUND;
+    }
+
+    auto* context = WdfObjectGet_MonitorContextWrapper(path.MonitorObject);
+    context->self->CommitMode(path.TargetVideoSignalInfo, path.Flags);
 
     return STATUS_SUCCESS;
 }
@@ -134,7 +147,6 @@ NTSTATUS AdapterContext::ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
 }
 
 NTSTATUS AdapterContext::DisconnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo) {
-    // Find slot
     int idx = pMonitorInfo->connectorIndex;
     if (connectedMonitors[idx].monitorObject == nullptr) {
         return STATUS_NOT_FOUND;

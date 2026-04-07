@@ -43,9 +43,7 @@ int main(int argc, char *argv[]) try {
         } else if (command == "--no-service") {
 			runAsService = false;
             Monidroid::DefaultLog("Starting as console applicaion...");
-#ifdef _WIN32
-            system("chcp 65001 > nul");
-#endif
+            // TODO: invalid encoding in Windows
 		} else {
 			std::cout << "Unknown option. Use --help to get available options." << '\n';
             return EINVAL;

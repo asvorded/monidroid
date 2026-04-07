@@ -62,6 +62,7 @@ struct MonitorContext {
 
     void SetupMonitor(const ADAPTER_MONITOR_INFO* pMonitirInfo);
     const MonitorMode& PreferredMode() const;
+    void CommitMode(const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& signalInfo, const IDDCX_PATH_FLAGS flags);
 
     HRESULT AssignSwapChain(IDDCX_SWAPCHAIN swapchain, LUID adapterLuid, HANDLE hNextSurfaceAvailable);
     void UnassignSwapChain();
@@ -71,6 +72,8 @@ struct MonitorContext {
 private:
     IDDCX_MONITOR m_monitor;
     MonitorMode m_preffered;
+    MonitorMode m_current;
+    bool m_enabled;
 
     std::unique_ptr<MonitorProcessor> m_pProcessor;
 };

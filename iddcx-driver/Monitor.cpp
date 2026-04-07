@@ -5,7 +5,10 @@
 
 MonitorContext::MonitorContext(IDDCX_MONITOR Monitor)
   : m_monitor(Monitor),
-    m_preffered()
+    m_preffered(),
+    m_current(),
+    // Monitor must be enabled after "commit modes" callback
+    m_enabled(false)
 { }
 
 MonitorContext::~MonitorContext() { }
@@ -20,6 +23,25 @@ void MonitorContext::SetupMonitor(const ADAPTER_MONITOR_INFO* pMonitirInfo) {
 
 const MonitorMode& MonitorContext::PreferredMode() const {
     return m_preffered;
+}
+
+void MonitorContext::CommitMode(const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& signalInfo, const IDDCX_PATH_FLAGS flags) {
+    m_enabled = (flags & IDDCX_PATH_FLAGS_ACTIVE);
+    if (!m_enabled) {
+        return;
+    }
+
+#ifdef DBG
+    if (signalInfo.vSyncFreq.Denominator != 1) {
+        // vSyncFreq.Denominator must be 1 according to MakeSignalInfo()
+        throw std::runtime_error("Unexpected signal info with vSyncFreq.Denominator not equal 1");
+    }
+#endif
+    m_current = {
+        .width = signalInfo.activeSize.cx,
+        .height = signalInfo.activeSize.cy,
+        .refreshRate = signalInfo.vSyncFreq.Numerator / signalInfo.AdditionalSignalInfo.vSyncFreqDivider,
+    };
 }
 
 
@@ -49,16 +71,23 @@ void MonitorContext::UnassignSwapChain() {
 }
 
 HRESULT MonitorContext::RequestFrame(FRAME_MONITOR_INFO& info) {
-    info.adapterLuid = { };
-    info.frameHandle = { };
-    info.metadata = { };
+    // Initialized in server, not here
+    //info.adapterLuid = { };
+    //info.frameHandle = { };
+    //info.metadata = { };
 
-    if (m_pProcessor) {
+    if (m_enabled && m_pProcessor) {
         HRESULT hr = m_pProcessor->RequestFrame(info);
-        info.metadata.enabled = SUCCEEDED(hr);
+        if (SUCCEEDED(hr)) {
+            info.metadata.mode = m_current;
+            info.enabled = true;
+        } else {
+            info.enabled = false;
+        }
+        return hr == E_ABORT ? S_OK : hr;
     } else {
-        // Monitor is off (??)
-        info.metadata.enabled = false;
+        // Monitor is off (if processor is empty ??)
+        info.enabled = false;
         return S_OK;
     }
 }
@@ -158,9 +187,9 @@ DWORD MonitorProcessor::ThreadProc(void* arg) {
     
     // Set event to avoid MAX_FRAME_WAIT waiting
     // Probable calls order:
-    // RequestFrame()      <- here we don't know state of processor thread 
+    // RequestFrame()      <- here we don't know state of processor thread
     // ------------------
-    // Assign/UnassignSwapChain() 
+    // Assign/UnassignSwapChain()
     // ------------------  <- here old processor is 100% stopped and freed
     // RequestFrame()
     SetEvent(self->m_stopEvent);
@@ -252,16 +281,20 @@ HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO& info) {
 
         return hr;
     }
-    case WAIT_OBJECT_0 + 1:
+    case WAIT_OBJECT_0 + 1: {
         // Processor suddenly stopped
         // maybe: 1) mode change, 2) internal error
+        //info.metadata.enabled = false;
         return E_ABORT;
-    case WAIT_TIMEOUT:
+    }
+    case WAIT_TIMEOUT: {
         // No pending desktop updates
+        //info.metadata.enabled = true;
         return S_OK;
     }
+    }
 
-    // Unexpected failure    
+    // Unexpected failure
     return E_UNEXPECTED;
 }
 
@@ -284,7 +317,7 @@ HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
         m_pDeviceContext->CopyResource(m_currentFrame.Get(), pSourceTexture.Get());
         m_currentMetadata = {
             .timeStamp = args.MetaData.PresentDisplayQPCTime,
-            .frameNumber = args.MetaData.PresentationFrameNumber
+            .frameNumber = args.MetaData.PresentationFrameNumber,
         };
     }
     return S_OK;

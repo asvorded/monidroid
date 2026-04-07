@@ -139,6 +139,8 @@ namespace Monidroid {
         u32 width;
         u32 height;
         u32 refreshRate;
+
+        bool operator==(const MonitorMode& rhs) const = default;
     };
 
     inline constexpr EDID CUSTOM_EDID {

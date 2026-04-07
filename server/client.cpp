@@ -104,6 +104,7 @@ bool Client::identifyClient() {
 bool Client::connectMonitor(const Adapter &adapter) {
     m_monitor = adapterConnectMonitor(adapter, m_modelName, m_preffered);
     if (!m_monitor) {
+        m_state = ClientState::Error;
         return false;
     }
 
@@ -118,25 +119,51 @@ bool Client::connectMonitor(const Adapter &adapter) {
 }
 
 void Client::sendFrames() {
-    if (!m_monitor) {
-        m_state = ClientState::Error;
-        return;
-    }
+    // Diagnostics
+    int frameFails = 0;
+    int mapFails = 0;
 
     m_state = ClientState::Streaming;
 
     FrameMapInfo info;
     unsigned int dataPixSize;
 
-    while (true) {
+    while (m_state == ClientState::Streaming) {
         MDStatus status = monitorRequestFrame(m_monitor);
-        if (status != MDStatus::Ok) {
-            break;
-        }
+        switch (status) {
+        case MDStatus::ModeChanged:
+        case MDStatus::FrameReady:
+            frameFails = 0;
 
-        monitorMapCurrent(m_monitor, info);
-        if (info.data != nullptr) {
-            sendFullFrame(info);
+            monitorMapCurrent(m_monitor, info);
+            if (info.data != nullptr) {
+                mapFails = 0;
+                sendFullFrame(info);
+            } else {
+                ++mapFails;
+                if (mapFails >= 10) {
+                    Monidroid::TaggedLog(m_modelName, "Too many map() fails, stopping sending...");
+                    m_state = ClientState::Error;
+                }
+            }
+            break;
+        case MDStatus::NoUpdates:
+            frameFails = 0;
+
+            break;
+        case MDStatus::MonitorOff:
+            frameFails = 0;
+
+            sendMonitorOff();
+            break;
+        default:
+            // Error branch
+            ++frameFails;
+            if (frameFails >= 15) {
+                Monidroid::TaggedLog(m_modelName, "Too many failed frame requests, stopping sending...");
+                m_state = ClientState::Error;
+            }
+            break;
         }
     }
 }
@@ -159,7 +186,7 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
 
     int code = tj3Compress8(tj,
         reinterpret_cast<const uint8_t*>(info.data),
-        info.width, 0, info.height, TJPF_BGRA,
+        info.width, info.stride, info.height, TJPF_BGRA,
         &jpegData, &_jpegsize
     );
 
@@ -167,6 +194,7 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
         Monidroid::DefaultLog(
             "Frame compression failed with code {}, message: \"{}\"", tj3GetErrorCode(tj), tj3GetErrorStr(tj)
         );
+        return;
     }
 
     int jpegSize = _jpegsize;
@@ -184,6 +212,8 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     size_t bytesSent = m_socket.write_some(boost::asio::buffer(sendBuffer.get(), bufSize), ec);
     if (ec) {
         m_sending = false;
+        // alternative
+        m_state = ClientState::ConnectionClosed;
     }
 
     tj3Free(jpegData);
@@ -191,7 +221,28 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
 }
 
 void Client::disconnectMonitor() {
+    // TODO Windows: process 1291 () error code
     monitorDisconnect(m_monitor);
+    m_state = ClientState::Disconnected;
+}
+
+void Client::sendMonitorOff() {
+    std::string_view frameWord(Monidroid::FRAME_WORD);
+
+    int jpegSize = 0;
+    size_t bufSize = frameWord.size() + sizeof(jpegSize);
+    auto sendBuffer = std::make_unique<char[]>(bufSize);
+
+    std::memcpy(sendBuffer.get(), frameWord.data(), frameWord.size());
+    std::memcpy(sendBuffer.get() + frameWord.size(), (void*)&jpegSize, sizeof(jpegSize));
+
+    boost::system::error_code ec;
+    size_t bytesSent = m_socket.write_some(boost::asio::buffer(sendBuffer.get(), bufSize), ec);
+    if (ec) {
+        m_sending = false;
+        // alternative
+        m_state = ClientState::ConnectionClosed;
+    }
 }
 
 void Client::sendError(ErrorCode code) {

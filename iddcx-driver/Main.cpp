@@ -297,8 +297,14 @@ NTSTATUS MdEvtAdapterCommitModes(
     IDDCX_ADAPTER AdapterObject,
     const IDARG_IN_COMMITMODES* pInArgs
 ) {
-    UNREFERENCED_PARAMETER(AdapterObject);
-    UNREFERENCED_PARAMETER(pInArgs);
+    auto* context = WdfObjectGet_AdapterContextWrapper(AdapterObject);
+
+    for (UINT i = 0; i < pInArgs->PathCount; ++i) {
+        NTSTATUS status = context->self->CommitMode(pInArgs->pPaths[i]);
+        if (!NT_SUCCESS(status)) {
+            return status;
+        }
+    }
 
     return STATUS_SUCCESS;
 }

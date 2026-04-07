@@ -192,7 +192,7 @@ Adapter openAdapter() {
     return Adapter(new AdapterContext(hAdapter));
 }
 
-Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelName, const MonitorMode& info) {
+Monitor adapterConnectMonitor(const Adapter& self, const std::string& modelName, const MonitorMode& info) {
     ADAPTER_MONITOR_INFO monitorInfo {
         .monitorNumberBySocket = INVALID_SOCKET,
         .width = info.width,
@@ -203,7 +203,7 @@ Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelNa
 
     DWORD bytesReceived = 0;
 
-    if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_MONITOR_CONNECT,
+    if (!DeviceIoControl(self->handle, IOCTL_IDDCX_MONITOR_CONNECT,
         &monitorInfo, sizeof(monitorInfo), &monitorInfoOut, sizeof(monitorInfoOut),
         &bytesReceived, NULL)
     ) {
@@ -213,18 +213,24 @@ Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelNa
 
     HANDLE hDriverProcess = OpenProcess(PROCESS_DUP_HANDLE, FALSE, monitorInfoOut.driverProcessId);
     if (hDriverProcess == NULL) {
-        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to initialize monitor (open driver process failed), error code: {}", GetLastError());
+        Monidroid::TaggedLog(ADAPTER_TAG, "Failed to initialize monitor, OpenProcess() returned {}", GetLastError());
         return Monitor();
     }
 
     Monitor monitor = Monitor(new MonitorContext {
-        .adapter = adapter,
+        .adapter = self,
         .modelName = modelName.empty() ? MONITOR_TAG : modelName,
         .currentMode = info,
         .connectorIndex = monitorInfoOut.connectorIndex,
         .adapterLuid = monitorInfoOut.adapterLuid,
         .driverProcess = hDriverProcess,
     });
+
+    HRESULT hr = CreateD3DDevice(monitor->adapterLuid, &monitor->m_device, &monitor->m_deviceContext);
+    if (FAILED(hr)) {
+        Monidroid::TaggedLog(monitor->modelName, "D3D device pre-creation failed, HRESULT: {:#010X}, ignoring", (unsigned long)hr);
+        monitor->adapterLuid = { };
+    }
 
     return monitor;
 }
@@ -243,17 +249,23 @@ MDStatus monitorRequestFrame(const Monitor& monitor) {
         &in, sizeof(in), &out, sizeof(out),
         &bytesReceived, nullptr)
     ) {
-        Monidroid::TaggedLog(monitor->modelName, "Frame request failed, DeviceIoControl() error code: {}", GetLastError());
-        return MDStatus::Error; // TODO
+        Monidroid::TaggedLog(monitor->modelName, "Frame request failed, DeviceIoControl() returned {}", GetLastError());
+        return MDStatus::Error;
     }
 
     // Check monitor power state
-    if (!out.metadata.enabled) {
+    if (!out.enabled) {
         return MDStatus::MonitorOff;
+    }
+
+    // Check frame handle (if there are any updates)
+    if (!out.frameHandle) {
+        return MDStatus::NoUpdates;
     }
     
     // Duplicate driver's render adapter to open shared resources
     if (out.adapterLuid != monitor->adapterLuid) {
+        Monidroid::TaggedLog(monitor->modelName, "Adapter LUID mismatch had been detected, D3D device will be recreated");
         monitor->m_device.Reset();
         monitor->m_deviceContext.Reset();
         HRESULT hr = CreateD3DDevice(out.adapterLuid, &monitor->m_device, &monitor->m_deviceContext);
@@ -271,7 +283,7 @@ MDStatus monitorRequestFrame(const Monitor& monitor) {
         monitor->thisProcess, &thisFrameHandle,
         0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
     )) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DuplicateHandle() error code: {}", GetLastError());
+        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
         CloseHandle(out.frameHandle);
         return MDStatus::Error;
     }
@@ -302,11 +314,17 @@ MDStatus monitorRequestFrame(const Monitor& monitor) {
 
     monitor->m_deviceContext->CopyResource(monitor->currentFrame.Get(), sharedTexture.Get());
 
-    if (desc.Width != monitor->currentMode.width || desc.Height != monitor->currentMode.height) {
-        // TODO: Update current mode???
+    // TODO: maybe handle refresh rate?
+    if (monitor->currentMode.width != desc.Width && monitor->currentMode.height != desc.Height) {
+        Monidroid::TaggedLog(monitor->modelName, "Mode change: {}x{} -> {}x{}",
+            monitor->currentMode.width, monitor->currentMode.height,
+            desc.Width, desc.Height
+        );
+        monitor->currentMode.width = desc.Width;
+        monitor->currentMode.height = desc.Height;
         return MDStatus::ModeChanged;
     }
-    return MDStatus::Ok;
+    return MDStatus::FrameReady;
 }
 
 MonitorMode monitorRequestMode(const Monitor& self, bool cached) {
@@ -318,7 +336,6 @@ void monitorMapCurrent(const Monitor& self, FrameMapInfo& mapInfo) {
     D3D11_MAPPED_SUBRESOURCE mapped;
     HRESULT hr = self->m_deviceContext->Map(self->currentFrame.Get(), 0, D3D11_MAP_READ, 0, &mapped);
     if (SUCCEEDED(hr)) {
-        Monidroid::TaggedLog(self->modelName, "Frame mapping failed, HRESULT: {:#010X}", (unsigned long)hr);
         D3D11_TEXTURE2D_DESC desc;
         self->currentFrame->GetDesc(&desc);
         mapInfo = {
@@ -328,6 +345,7 @@ void monitorMapCurrent(const Monitor& self, FrameMapInfo& mapInfo) {
             .stride = mapped.RowPitch
         };
     } else {
+        Monidroid::TaggedLog(self->modelName, "Frame mapping failed, HRESULT: {:#010X}", (unsigned long)hr);
         mapInfo = { };
     }
 }

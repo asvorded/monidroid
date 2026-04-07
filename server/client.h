@@ -15,7 +15,7 @@ using namespace boost::asio;
 using namespace Monidroid;
 
 enum class ClientState {
-    New, Identified, Connected, Streaming, Disconnected, Error
+    New, Identified, Connected, Streaming, ConnectionClosed, Disconnected, Error
 };
 
 struct Client {
@@ -51,6 +51,7 @@ public:
     void sendFrames();
     void disconnectMonitor();
 
+    void sendMonitorOff();
     void sendError(ErrorCode code);
     void sendError(const std::string_view msg);
 };

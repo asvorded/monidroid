@@ -4,6 +4,8 @@
 #include <initguid.h>
 #include <d3dcommon.h>
 
+#include "monidroid/edid.h"
+
 typedef UINT_PTR SOCKET;
 
 #define MONIDROID_DEVICE_PATH					L"\\Device\\MonidroidAdapter"
@@ -31,23 +33,20 @@ MD_DEFINE_IOCTL(MONITOR_DISCONNECT, FILE_DEVICE_VIDEO, 1, METHOD_BUFFERED, FILE_
     UINT connectorIndex;
 }, { })
 
-MD_DEFINE_IOCTL(REQUEST_FRAME, FILE_DEVICE_VIDEO, 3, METHOD_BUFFERED, FILE_ANY_ACCESS, {
+MD_DEFINE_IOCTL(REQUEST_FRAME, FILE_DEVICE_VIDEO, 2, METHOD_BUFFERED, FILE_ANY_ACCESS, {
     UINT connectorIndex;
 }, {
+    LUID adapterLuid;
     HANDLE frameHandle;
-    struct MODE {
-        UINT width;
-        UINT height;
-        UINT stride;
-        UINT reserved;
-    } reserved;
+    bool enabled;
     struct METADATA {
         UINT64 timeStamp;
         UINT frameNumber;
+        Monidroid::MonitorMode mode;
     } metadata;
 })
 
-MD_DEFINE_IOCTL(FAST_REQUEST_FRAME, FILE_DEVICE_VIDEO, 4, METHOD_OUT_DIRECT, FILE_ANY_ACCESS, {
+MD_DEFINE_IOCTL(FAST_REQUEST_FRAME, FILE_DEVICE_VIDEO, 3, METHOD_OUT_DIRECT, FILE_ANY_ACCESS, {
     UINT connectorIndex;
 }, { })
 
@@ -82,11 +81,11 @@ struct FRAME_MONITOR_INFO {
 
     _Out_ LUID adapterLuid;    // OUT
     _Out_ HANDLE frameHandle;  // OUT
+    _Out_ bool enabled;        // OUT 
     _Out_ struct METADATA {
         UINT64 timeStamp;
         UINT frameNumber;
-        bool enabled;
-        UINT reserved;
+        Monidroid::MonitorMode mode;
     } metadata;                // OUT
 };
 

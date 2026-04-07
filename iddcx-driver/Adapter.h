@@ -8,7 +8,7 @@
 #include "iddcx.h"
 
 struct AdapterContext {
-    static constexpr auto EDID_PROVIDED = false;
+    static constexpr auto EDID_PROVIDED = true;
     static constexpr auto MAX_MONITOR_COUNT = Monidroid::MAX_MONITORS_SUPPORTED;
     static constexpr auto REENCODES_COUNT = 1;
 
@@ -19,6 +19,7 @@ struct AdapterContext {
     AdapterContext& operator=(const AdapterContext&) = delete;
 
     NTSTATUS Init();
+    NTSTATUS CommitMode(const IDDCX_PATH& path);
 
     NTSTATUS ConnectMonitor(ADAPTER_MONITOR_INFO* pMonitorInfo);
     NTSTATUS DisconnectMonitor(ADAPTER_MONITOR_INFO* monitorInfo);

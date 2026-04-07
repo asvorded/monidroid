@@ -10,7 +10,8 @@ using namespace Monidroid;
 using ColorType = u32;
 
 enum class MDStatus : int {
-	Ok = 0,
+	FrameReady = 0,
+	NoUpdates,
 	ModeChanged,
 	MonitorOff,
 	Error = -1,
