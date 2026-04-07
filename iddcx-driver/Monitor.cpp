@@ -269,6 +269,10 @@ HRESULT MonitorProcessor::RequestFrame(FRAME_MONITOR_INFO& info) {
     case WAIT_OBJECT_0: {
         // Frame ready
         ComPtr<IDXGIResource1> res;
+        if (!m_currentFrame) {
+            // maybe return another code?
+            return E_OUTOFMEMORY;
+        }
         m_currentFrame->QueryInterface(IID_PPV_ARGS(&res));
 
         HANDLE handle = NULL;
@@ -308,9 +312,6 @@ HRESULT MonitorProcessor::CopyFrame(const BufferArgs& args) {
     pSourceTexture->GetDesc(&desc);
     // Cannot create STAGING and SHARED_NTHANDLE texture
     // IddCx texture has SHARED_NTHANDLE misc flag by default
-
-    // Destroy previous frame
-    m_currentFrame.Reset();
 
     HRESULT hr = m_pDevice->CreateTexture2D(&desc, nullptr, &m_currentFrame);
     if (SUCCEEDED(hr)) {

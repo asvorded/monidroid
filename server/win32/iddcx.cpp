@@ -39,6 +39,7 @@ struct MonitorContext {
 
 public:
     std::weak_ptr<AdapterContext> adapter;
+    HANDLE adapterHandle;
 
     std::string modelName;
     MonitorMode currentMode;
@@ -55,6 +56,7 @@ public:
 };
 
 MonitorContext::~MonitorContext() {
+    if (adapterHandle != NULL) CloseHandle(adapterHandle);
     if (driverProcess != NULL) CloseHandle(driverProcess);
     if (thisProcess != NULL) CloseHandle(thisProcess);
 }
@@ -219,6 +221,7 @@ Monitor adapterConnectMonitor(const Adapter& self, const std::string& modelName,
 
     Monitor monitor = Monitor(new MonitorContext {
         .adapter = self,
+        .adapterHandle = self->handle,
         .modelName = modelName.empty() ? MONITOR_TAG : modelName,
         .currentMode = info,
         .connectorIndex = monitorInfoOut.connectorIndex,
@@ -235,25 +238,25 @@ Monitor adapterConnectMonitor(const Adapter& self, const std::string& modelName,
     return monitor;
 }
 
-MDStatus monitorRequestFrame(const Monitor& monitor) {
-    Adapter adapter = monitor->adapter.lock();
-    if (!adapter) {
-        throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter!");
-    }
+MDStatus monitorRequestFrame(const Monitor& self) {
+    //Adapter adapter = self->adapter.lock();
+    //if (!adapter) {
+    //    throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter!");
+    //}
 
-    FRAME_MONITOR_INFO in { .connectorIndex = monitor->connectorIndex };
+    FRAME_MONITOR_INFO in { .connectorIndex = self->connectorIndex };
     FRAME_MONITOR_INFO out { };
     DWORD bytesReceived = -1;
 
-    if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_REQUEST_FRAME,
+    if (!DeviceIoControl(self->adapterHandle, IOCTL_IDDCX_REQUEST_FRAME,
         &in, sizeof(in), &out, sizeof(out),
         &bytesReceived, nullptr)
     ) {
-        Monidroid::TaggedLog(monitor->modelName, "Frame request failed, DeviceIoControl() returned {}", GetLastError());
+        Monidroid::TaggedLog(self->modelName, "Frame request failed, DeviceIoControl() returned {}", GetLastError());
         return MDStatus::Error;
     }
 
-    // Check monitor power state
+    // Check self power state
     if (!out.enabled) {
         return MDStatus::MonitorOff;
     }
@@ -264,35 +267,36 @@ MDStatus monitorRequestFrame(const Monitor& monitor) {
     }
     
     // Duplicate driver's render adapter to open shared resources
-    if (out.adapterLuid != monitor->adapterLuid) {
-        Monidroid::TaggedLog(monitor->modelName, "Adapter LUID mismatch had been detected, D3D device will be recreated");
-        monitor->m_device.Reset();
-        monitor->m_deviceContext.Reset();
-        HRESULT hr = CreateD3DDevice(out.adapterLuid, &monitor->m_device, &monitor->m_deviceContext);
+    if (out.adapterLuid != self->adapterLuid) {
+        Monidroid::TaggedLog(self->modelName, "Adapter LUID mismatch had been detected, D3D device will be recreated");
+        self->m_device.Reset();
+        self->m_deviceContext.Reset();
+        HRESULT hr = CreateD3DDevice(out.adapterLuid, &self->m_device, &self->m_deviceContext);
         if (FAILED(hr)) {
-            Monidroid::TaggedLog(monitor->modelName, "Failed to initialize D3D device, HRESULT: {:#010X}", (unsigned long)hr);
+            Monidroid::TaggedLog(self->modelName, "Failed to initialize D3D device, HRESULT: {:#010X}", (unsigned long)hr);
             return MDStatus::Error;
         }
-        monitor->adapterLuid = out.adapterLuid;
+        self->adapterLuid = out.adapterLuid;
     }
 
-    HANDLE thisFrameHandle = NULL;
+    //HANDLE thisFrameHandle = NULL;
 
-    if (!DuplicateHandle(
-        monitor->driverProcess, out.frameHandle,
-        monitor->thisProcess, &thisFrameHandle,
-        0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
-    )) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
-        CloseHandle(out.frameHandle);
-        return MDStatus::Error;
-    }
+    //if (!DuplicateHandle(
+    //    self->driverProcess, out.frameHandle,
+    //    self->thisProcess, &thisFrameHandle,
+    //    0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
+    //)) {
+    //    Monidroid::TaggedLog(self->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
+    //    CloseHandle(out.frameHandle);
+    //    return MDStatus::Error;
+    //}
 
     ComPtr<ID3D11Texture2D> sharedTexture;
-    HRESULT hr = monitor->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
-    CloseHandle(thisFrameHandle);
+    //HRESULT hr = self->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
+    HRESULT hr = self->m_device->OpenSharedResource(out.frameHandle, IID_PPV_ARGS(&sharedTexture));
+    //CloseHandle(thisFrameHandle);
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(monitor->modelName, "D3D shared resource cannot be opened, HRESULT: {:#010X}", (unsigned long)hr);
+        Monidroid::TaggedLog(self->modelName, "D3D shared resource cannot be opened, HRESULT: {:#010X}", (unsigned long)hr);
         return MDStatus::Error;
     }
 
@@ -305,23 +309,23 @@ MDStatus monitorRequestFrame(const Monitor& monitor) {
     desc.BindFlags = 0;
     desc.MiscFlags = 0;
     
-    monitor->currentFrame.Reset();
-    hr = monitor->m_device->CreateTexture2D(&desc, nullptr, &monitor->currentFrame);
+    self->currentFrame.Reset();
+    hr = self->m_device->CreateTexture2D(&desc, nullptr, &self->currentFrame);
     if (FAILED(hr)) {
-        Monidroid::TaggedLog(monitor->modelName, "Failed to stage frame, HRESULT: {:#010X}", (unsigned long)hr);
+        Monidroid::TaggedLog(self->modelName, "Failed to stage frame, HRESULT: {:#010X}", (unsigned long)hr);
         return MDStatus::Error;
     }
 
-    monitor->m_deviceContext->CopyResource(monitor->currentFrame.Get(), sharedTexture.Get());
+    self->m_deviceContext->CopyResource(self->currentFrame.Get(), sharedTexture.Get());
 
     // TODO: maybe handle refresh rate?
-    if (monitor->currentMode.width != desc.Width && monitor->currentMode.height != desc.Height) {
-        Monidroid::TaggedLog(monitor->modelName, "Mode change: {}x{} -> {}x{}",
-            monitor->currentMode.width, monitor->currentMode.height,
+    if (self->currentMode.width != desc.Width || self->currentMode.height != desc.Height) {
+        Monidroid::TaggedLog(self->modelName, "Mode change: {}x{} -> {}x{}",
+            self->currentMode.width, self->currentMode.height,
             desc.Width, desc.Height
         );
-        monitor->currentMode.width = desc.Width;
-        monitor->currentMode.height = desc.Height;
+        self->currentMode.width = desc.Width;
+        self->currentMode.height = desc.Height;
         return MDStatus::ModeChanged;
     }
     return MDStatus::FrameReady;
@@ -354,21 +358,21 @@ void monitorUnmap(const Monitor& self) {
     self->m_deviceContext->Unmap(self->currentFrame.Get(), 0);
 }
 
-void monitorDisconnect(Monitor& monitor) {
-    if (auto adapter = monitor->adapter.lock()) {
+void monitorDisconnect(Monitor& self) {
+    if (auto adapter = self->adapter.lock()) {
         ADAPTER_MONITOR_INFO monitorInfo = {};
         monitorInfo.monitorNumberBySocket = INVALID_SOCKET; // TODO
-        monitorInfo.connectorIndex = monitor->connectorIndex;
+        monitorInfo.connectorIndex = self->connectorIndex;
         ADAPTER_MONITOR_INFO monitorInfoOut = {};
 
         DWORD bytesReceived = 0;
 
         if (!DeviceIoControl(adapter->handle, IOCTL_IDDCX_MONITOR_DISCONNECT,
             &monitorInfo, sizeof(monitorInfo), &monitorInfoOut, sizeof(monitorInfoOut), &bytesReceived, NULL)) {
-            Monidroid::TaggedLog(ADAPTER_TAG, "Failed to disconnect \"{}\", error code: {}", monitor->modelName, GetLastError());
+            Monidroid::TaggedLog(ADAPTER_TAG, "Failed to disconnect \"{}\", error code: {}", self->modelName, GetLastError());
         }
     } else {
-        Monidroid::TaggedLog(monitor->modelName, "Adapter is inaccessible, ignoring disconnect request...");
+        Monidroid::TaggedLog(self->modelName, "Adapter is inaccessible, ignoring disconnect request...");
     }
-    monitor.reset();
+    self.reset();
 }
