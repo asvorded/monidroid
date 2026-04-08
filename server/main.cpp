@@ -63,18 +63,18 @@ int main(int argc, char *argv[]) try {
     Server server(context);
     server.start();
     
-    // Main loop, main thread is running until this context is stopped
-    context.run();
-    
     std::signal(SIGINT, [](int signal) {
         Monidroid::DefaultLog("Stop requested, shutting down the server...");
 
         context.stop();
     });
+
+    // Main loop, main thread is running until this context is stopped
+    context.run();
     
     return 0;
 } catch (const std::exception& e) {
-    Monidroid::DefaultLog("ERROR: {}", e.what());
+    Monidroid::DefaultLog("{}", e.what());
     Monidroid::DefaultLog("Exiting due to critical error");
 
     return -1;
