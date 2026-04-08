@@ -3,27 +3,36 @@
 #include <thread>
 #include <vector>
 #include <string>
+#include <string_view>
 
 #include <evdi_lib.h>
-
 #include <boost/asio.hpp>
 
+#include "monidroid.h"
+
+#include "native.h"
+
 using namespace boost::asio;
+using namespace Monidroid;
+
+enum class ClientState {
+    New, Identified, Connected, Streaming, ConnectionClosed, Disconnected, Error
+};
 
 struct Client {
-    using ColorType = int;
+    static constexpr auto CLIENT_TAG = "Client";
 
 public:
     ip::tcp::socket m_socket;
     std::vector<char> m_netBuffer;
     bool m_sending = false;
 
-    int m_width = -1;
-    int m_height = -1;
-    int m_hertz = -1;
-
+    MonitorMode m_preffered;
     std::string m_modelName;
-
+    ClientState m_state = ClientState::New;
+    
+    Monitor m_monitor;
+    
     evdi_handle m_handle = EVDI_INVALID_HANDLE;
     int m_devNumber = 0;
 
@@ -32,12 +41,10 @@ public:
 
     std::thread m_communicationThread; // ???
 
-    static const unsigned char MD_EDID[128];
-    static constexpr auto SKU_AREA_LIMIT = 60;
+    void allocFrameBuffer(int width, int height);
+    void initPipeline();
 
-    int allocFrameBuffer(int width, int height);
-    int initPipeline();
-
+    void sendFullFrame(const FrameMapInfo& info);
     int grabAndSend(int bufferId);
 
     static void dpmsHandler(int dpms_mode, void *user_data);
@@ -46,13 +53,17 @@ public:
 
 public:
     Client(ip::tcp::socket socket);
+    ~Client();
 
-    Client(const Client&) = delete;
-    Client& operator=(const Client&) = delete;
+    MD_CLASS_PTR_ONLY(Client)
 
-    void identifyClient();
-    int connectMonitor();
-    int sendFrames();
-    int disconnectMonitor();
-    int finalize();
+    ClientState state() const;
+    bool identifyClient();
+    bool connectMonitor(const Adapter& adapter);
+    void sendFrames();
+    void disconnectMonitor();
+
+    void sendMonitorOff();
+    void sendError(ErrorCode code);
+    void sendError(const std::string_view msg);
 };

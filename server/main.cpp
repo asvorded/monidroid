@@ -61,7 +61,6 @@ int main(int argc, char *argv[]) try {
     echoServer.start();
     
     Server server(context);
-    server.start();
     
     std::signal(SIGINT, [](int signal) {
         Monidroid::DefaultLog("Stop requested, shutting down the server...");

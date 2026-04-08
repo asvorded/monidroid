@@ -2,6 +2,14 @@
 
 #define MONIDROID_SERVICE_VERSION                     "0.1.0"
 
+#define MD_CLASS_PTR_ONLY(Type) \
+    Type(const Type&) = delete; \
+    Type& operator=(const Type&) = delete;
+
+#define MD_CLASS_NON_COPYABLE(Type) MD_CLASS_PTR_ONLY(Type); \
+    Type(Type&&); \
+    Type& operator=(Type&&);
+
 namespace Monidroid {
 
     // Network
@@ -12,11 +20,25 @@ namespace Monidroid {
     inline constexpr auto WELCOME_WORD              = "WELCOME";
     
     inline constexpr auto FRAME_WORD                = "FRAME";
-    
+
+    inline constexpr auto ERROR_WORD                = "ERROR";
+
+    // ECHO
     inline constexpr auto CLIENT_ECHO_WORD          = "MDCLIENT_ECHO";
     
     inline constexpr auto SERVER_ECHO_WORD          = "MDIDD_ECHO";
 
     // Info
     inline constexpr auto MAX_MONITORS_SUPPORTED    = 16;
+
+    enum class ErrorCode : int {
+        MessageEncoded            = 0,
+        NotIdentified             = 1,
+        IncorrectMonitorOptions   = 2,
+        MonitorConnectFail        = 3,
+
+        InvalidClient             = 10,
+
+        Unspecified               = 1000,
+    };
 } // namespace Monidroid
