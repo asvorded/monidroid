@@ -10,7 +10,7 @@ Server::Server(boost::asio::io_context &context)
 {
     m_adapter = openAdapter();
     if (!m_adapter) {
-        throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter during server initialization");
+        throw std::runtime_error("Unexpected graphics adapter inaccessibility detected during server initialization");
     }
 
     serverMainAsync();
