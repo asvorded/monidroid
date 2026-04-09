@@ -279,22 +279,21 @@ MDStatus monitorRequestFrame(const Monitor& self) {
         self->adapterLuid = out.adapterLuid;
     }
 
-    //HANDLE thisFrameHandle = NULL;
+    HANDLE thisFrameHandle = NULL;
 
-    //if (!DuplicateHandle(
-    //    self->driverProcess, out.frameHandle,
-    //    self->thisProcess, &thisFrameHandle,
-    //    0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
-    //)) {
-    //    Monidroid::TaggedLog(self->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
-    //    CloseHandle(out.frameHandle);
-    //    return MDStatus::Error;
-    //}
+    if (!DuplicateHandle(
+        self->driverProcess, out.frameHandle,
+        self->thisProcess, &thisFrameHandle,
+        0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS
+    )) {
+        Monidroid::TaggedLog(self->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
+        CloseHandle(out.frameHandle);
+        return MDStatus::Error;
+    }
 
     ComPtr<ID3D11Texture2D> sharedTexture;
-    //HRESULT hr = self->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
-    HRESULT hr = self->m_device->OpenSharedResource(out.frameHandle, IID_PPV_ARGS(&sharedTexture));
-    //CloseHandle(thisFrameHandle);
+    HRESULT hr = self->m_device->OpenSharedResource1(thisFrameHandle, IID_PPV_ARGS(&sharedTexture));
+    CloseHandle(thisFrameHandle);
     if (FAILED(hr)) {
         Monidroid::TaggedLog(self->modelName, "D3D shared resource cannot be opened, HRESULT: {:#010X}", (unsigned long)hr);
         return MDStatus::Error;
