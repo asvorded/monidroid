@@ -103,6 +103,9 @@ bool Client::identifyClient() {
 }
 
 bool Client::connectMonitor(const Adapter &adapter) {
+    // TEST CODE
+    return false;
+
     // Fine device number (X from /dev/dri/card[X])
     evdi_add_device();
     m_devNumber = 0;
@@ -283,10 +286,27 @@ void Client::sendMonitorOff() {
 }
 
 void Client::sendError(ErrorCode code) {
+    std::string_view errorWord(Monidroid::ERROR_WORD);    
+    boost::system::error_code ec;
+    
+    m_socket.write_some(boost::asio::buffer(errorWord), ec);
+    m_socket.write_some(boost::asio::buffer((void*)&code, sizeof(code)), ec);
+    
+    m_socket.shutdown(ip::tcp::socket::shutdown_both);
 }
 
 void Client::sendError(const std::string_view msg) {
-
+    std::string_view errorWord(Monidroid::ERROR_WORD);    
+    ErrorCode code = ErrorCode::MessageEncoded;
+    int len = errorWord.size();
+    boost::system::error_code ec;
+    
+    m_socket.write_some(boost::asio::buffer(errorWord), ec);
+    m_socket.write_some(boost::asio::buffer((void*)&code, sizeof(code)), ec);
+    m_socket.write_some(boost::asio::buffer((void*)&len, sizeof(len)), ec);
+    m_socket.write_some(boost::asio::buffer(errorWord), ec);
+    
+    m_socket.shutdown(ip::tcp::socket::shutdown_both);
 }
 
 void Client::dpmsHandler(int dpms_mode, void *user_data) {

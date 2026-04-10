@@ -36,6 +36,7 @@ namespace Monidroid {
         NotIdentified             = 1,
         IncorrectMonitorOptions   = 2,
         MonitorConnectFail        = 3,
+        TooManyFails              = 4,
 
         InvalidClient             = 10,
 
