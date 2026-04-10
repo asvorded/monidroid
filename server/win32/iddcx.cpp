@@ -39,6 +39,7 @@ struct MonitorContext {
 
 public:
     std::weak_ptr<AdapterContext> adapter;
+    // Weak ref, in order not to call to shared_ptr::lock()
     HANDLE adapterHandle;
 
     std::string modelName;
@@ -56,7 +57,6 @@ public:
 };
 
 MonitorContext::~MonitorContext() {
-    if (adapterHandle != NULL) CloseHandle(adapterHandle);
     if (driverProcess != NULL) CloseHandle(driverProcess);
     if (thisProcess != NULL) CloseHandle(thisProcess);
 }

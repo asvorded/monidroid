@@ -199,19 +199,17 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
 
     int jpegSize = _jpegsize;
 
-    std::string_view frameWord(Monidroid::FRAME_WORD);
-
-    size_t bufSize = frameWord.size() + sizeof(jpegSize) + jpegSize;
-    auto sendBuffer = std::make_unique<char[]>(bufSize);
-
-    std::memcpy(sendBuffer.get(), frameWord.data(), frameWord.size());
-    std::memcpy(sendBuffer.get() + frameWord.size(), (void*)&jpegSize, sizeof(jpegSize));
-    std::memcpy(sendBuffer.get() + frameWord.size() + sizeof(jpegSize), jpegData, jpegSize);
+    std::array<boost::asio::const_buffer, 3> buffers {
+        boost::asio::buffer(std::string_view(Monidroid::FRAME_WORD)),
+        boost::asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
+        boost::asio::buffer(jpegData, jpegSize),
+    };
 
     boost::system::error_code ec;
-    size_t bytesSent = m_socket.write_some(boost::asio::buffer(sendBuffer.get(), bufSize), ec);
+    boost::asio::write(m_socket, buffers, ec);
     if (ec) {
         m_sending = false;
+        std::cout << ec.message() << "\n";
         // alternative
         m_state = ClientState::ConnectionClosed;
     }
@@ -237,17 +235,41 @@ void Client::sendMonitorOff() {
     std::memcpy(sendBuffer.get() + frameWord.size(), (void*)&jpegSize, sizeof(jpegSize));
 
     boost::system::error_code ec;
-    size_t bytesSent = m_socket.write_some(boost::asio::buffer(sendBuffer.get(), bufSize), ec);
+    boost::asio::write(m_socket, boost::asio::buffer(sendBuffer.get(), bufSize), ec);
     if (ec) {
         m_sending = false;
+        std::cout << ec.message() << "\n";
         // alternative
         m_state = ClientState::ConnectionClosed;
     }
 }
 
 void Client::sendError(ErrorCode code) {
+    std::array<boost::asio::const_buffer, 2> buffers = {
+        boost::asio::buffer(std::string_view(Monidroid::ERROR_WORD)),
+        boost::asio::buffer((void*)&code, sizeof(code))
+    };
+
+    boost::system::error_code ec;
+    boost::asio::write(m_socket, buffers, ec);
+    if (ec) std::cout << ec.message() << "\n";
+    m_socket.shutdown(ip::tcp::socket::shutdown_both, ec);
 }
 
 void Client::sendError(const std::string_view msg) {
+    std::string_view errorWord(Monidroid::ERROR_WORD);
+    ErrorCode code = ErrorCode::MessageEncoded;
+    int len = msg.size();
 
+    std::array<boost::asio::const_buffer, 4> buffers {
+        boost::asio::buffer(std::string_view(Monidroid::ERROR_WORD)),
+        boost::asio::buffer((void*)&code, sizeof(code)),
+        boost::asio::buffer((void*)&len, sizeof(len)),
+        boost::asio::buffer(msg),
+    };
+
+    boost::system::error_code ec;
+    boost::asio::write(m_socket, buffers, ec);
+    if (ec) std::cout << ec.message() << "\n";
+    m_socket.shutdown(ip::tcp::socket::shutdown_both, ec);
 }
