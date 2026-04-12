@@ -32,6 +32,7 @@ pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
     gstreamer-1.0
     gstreamer-audio-1.0
     gstreamer-pbutils-1.0
+    gstreamer-rtsp-server-1.0
 )
 
 # Boost

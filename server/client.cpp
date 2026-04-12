@@ -7,6 +7,7 @@
 
 #include <turbojpeg.h>
 #include <gst/gst.h>
+#include <gst/rtsp-server/rtsp-server.h>
 
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"
@@ -103,31 +104,26 @@ bool Client::identifyClient() {
 }
 
 bool Client::connectMonitor(const Adapter &adapter) {
-    // TEST CODE
-    return false;
+    // // Fine device number (X from /dev/dri/card[X])
+    // evdi_add_device();
+    // m_devNumber = 0;
+    // while (evdi_check_device(m_devNumber) != AVAILABLE) m_devNumber++;
 
-    // Fine device number (X from /dev/dri/card[X])
-    evdi_add_device();
-    m_devNumber = 0;
-    while (evdi_check_device(m_devNumber) != AVAILABLE) m_devNumber++;
+    // // Prepare EDID
+    // Monidroid::EDID edid = Monidroid::CUSTOM_EDID;
+    // edid.setDefaultMode(m_preffered.width, m_preffered.height, m_preffered.refreshRate);
+    // edid.commit();
 
-    // Prepare EDID
-    Monidroid::EDID edid = Monidroid::CUSTOM_EDID;
-    edid.setDefaultMode(m_preffered.width, m_preffered.height, m_preffered.refreshRate);
-    edid.commit();
+    // // Connect monitor
+    // m_handle = evdi_open(m_devNumber);
+    // evdi_connect2(m_handle,
+    //     reinterpret_cast<const unsigned char *>(&edid), sizeof(edid),
+    //     m_preffered.width * m_preffered.height,
+    //     edid.dataBlocks[0].timing.pixel_clock * 10000
+    // );
 
-    // Connect monitor
-    m_handle = evdi_open(m_devNumber);
-    evdi_connect2(m_handle,
-        reinterpret_cast<const unsigned char *>(&edid), sizeof(edid),
-        m_preffered.width * m_preffered.height,
-        edid.dataBlocks[0].timing.pixel_clock * 10000
-    );
-
-    // Set up buffer
-    allocFrameBuffer(m_preffered.width, m_preffered.height);
-
-    // gst_parse_launch("appsrc ! gpegenc");
+    // // Set up buffer
+    // allocFrameBuffer(m_preffered.width, m_preffered.height);
 
     m_state = ClientState::Connected;
 
@@ -135,22 +131,48 @@ bool Client::connectMonitor(const Adapter &adapter) {
 }
 
 void Client::sendFrames() {
-    struct evdi_event_context ctx = {
-        .dpms_handler = dpmsHandler,
-        .mode_changed_handler = modeHandler,
-        .update_ready_handler = updateHandler,
-        .user_data = this
-    };
+    // struct evdi_event_context ctx = {
+    //     .dpms_handler = dpmsHandler,
+    //     .mode_changed_handler = modeHandler,
+    //     .update_ready_handler = updateHandler,
+    //     .user_data = this
+    // };
 
-    m_sending = true;
-    while (m_sending) {
-        bool ready = evdi_request_update(m_handle, m_frameBufferInfo.id);
-        if (ready) {
-            grabAndSend(m_frameBufferInfo.id);
-        } else {
-            evdi_handle_events(m_handle, &ctx);
-        }
-    }
+    // m_sending = true;
+    // while (m_sending) {
+    //     bool ready = evdi_request_update(m_handle, m_frameBufferInfo.id);
+    //     if (ready) {
+    //         grabAndSend(m_frameBufferInfo.id);
+    //     } else {
+    //         evdi_handle_events(m_handle, &ctx);
+    //     }
+    // }
+
+    GMainLoop *loop;
+    GstRTSPServer *server;
+    GstRTSPMountPoints *mounts;
+    GstRTSPMediaFactory *factory;
+
+    loop = g_main_loop_new(NULL, FALSE);
+    server = gst_rtsp_server_new();
+
+    factory = gst_rtsp_media_factory_new();
+
+    GstElement *bin = gst_bin_new("bin");
+    GstElement *src = gst_element_factory_make("appsrc", "mdsrc");
+    GstElement *x264enc = gst_element_factory_make("x264enc", NULL);
+    GstElement *rtp = gst_element_factory_make("rtph264pay", NULL);
+
+    g_object_set(rtp, "pt", 96, NULL);
+
+    gst_rtsp_media_factory_set_launch(factory, "( videotestsrc ! x264enc ! rtph264pay name=pay0 pt=96 )");
+    mounts = gst_rtsp_server_get_mount_points(server);
+    gst_rtsp_mount_points_add_factory(mounts, "/stream", factory);
+    g_object_unref(mounts);
+
+    gst_rtsp_server_attach(server, NULL);
+
+    g_main_loop_run(loop);
 }
 
 void Client::allocFrameBuffer(int width, int height) {
@@ -169,7 +191,7 @@ void Client::allocFrameBuffer(int width, int height) {
 }
 
 void Client::initPipeline() {
-    //
+    
 }
 
 void Client::sendFullFrame(const FrameMapInfo& info) {
