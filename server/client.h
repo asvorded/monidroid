@@ -5,7 +5,6 @@
 #include <string>
 #include <string_view>
 
-#include <evdi_lib.h>
 #include <boost/asio.hpp>
 
 #include "monidroid.h"
@@ -30,14 +29,8 @@ public:
     MonitorMode m_preffered;
     std::string m_modelName;
     ClientState m_state = ClientState::New;
-    
-    Monitor m_monitor;
-    
-    evdi_handle m_handle = EVDI_INVALID_HANDLE;
-    int m_devNumber = 0;
 
-    evdi_buffer m_frameBufferInfo;
-    std::vector<ColorType> m_frameBuffer;
+    Monitor m_monitor;
 
     std::thread m_communicationThread; // ???
 
@@ -45,11 +38,7 @@ public:
     void initPipeline();
 
     void sendFullFrame(const FrameMapInfo& info);
-    int grabAndSend(int bufferId);
-
-    static void dpmsHandler(int dpms_mode, void *user_data);
-    static void modeHandler(struct evdi_mode mode, void *user_data);
-    static void updateHandler(int buffer_to_be_updated, void *user_data);
+    void sendMonitorOff();
 
 public:
     Client(ip::tcp::socket socket);
@@ -63,7 +52,6 @@ public:
     void sendFrames();
     void disconnectMonitor();
 
-    void sendMonitorOff();
     void sendError(ErrorCode code);
     void sendError(const std::string_view msg);
 };

@@ -1,0 +1,90 @@
+#pragma once
+
+#include <memory>
+#include <system_error>
+
+#include <Windows.h>
+#include <wdf.h>
+#include <IddCx.h>
+#include <wrl.h>
+
+#include "monidroid.h"
+#include "monidroid/edid.h"
+#include "iddcx.h"
+
+using namespace Microsoft::WRL;
+using namespace Monidroid;
+
+class MonitorProcessor {
+    using BufferArgs = IDARG_OUT_RELEASEANDACQUIREBUFFER;
+    using Bool = unsigned int;
+public:
+    static constexpr auto MAX_STOP_WAIT  = 5'000U;
+    static constexpr auto MAX_FRAME_WAIT = 5'000U;
+
+    MonitorProcessor(IDDCX_SWAPCHAIN swapChain, LUID AdapterLuid, HANDLE hNextSurfaceAvailable);
+    ~MonitorProcessor();
+
+    MD_CLASS_PTR_ONLY(MonitorProcessor)
+
+    HRESULT Init();
+    HRESULT Start();
+    void Stop() noexcept(false);
+    HRESULT RequestFrame(FRAME_MONITOR_INFO& info);
+    HRESULT CopyFrame(const BufferArgs& args);
+
+private:
+    static DWORD CALLBACK ThreadProc(void* arg);
+    HRESULT StartPrivate();
+
+private:
+    IDDCX_SWAPCHAIN m_swapChain;
+    HANDLE m_newFrameEvent;
+    LUID m_adapterLuid;
+    HANDLE m_thread;
+    HANDLE m_stopEvent;
+
+    Bool m_frameRequested;
+    HANDLE m_frameReadyEvent;
+
+    ComPtr<ID3D11Texture2D> m_currentFrame;
+    FRAME_MONITOR_INFO::METADATA m_currentMetadata;
+
+    ComPtr<ID3D11Device3> m_pDevice;
+    ComPtr<ID3D11DeviceContext3> m_pDeviceContext;
+};
+
+struct MonitorContext {
+    MonitorContext(IDDCX_MONITOR Monitor);
+    ~MonitorContext();
+
+    MD_CLASS_PTR_ONLY(MonitorContext)
+
+    void SetupMonitor(const ADAPTER_MONITOR_INFO* pMonitirInfo);
+    const MonitorMode& PreferredMode() const;
+    void CommitMode(const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& signalInfo, const IDDCX_PATH_FLAGS flags);
+
+    HRESULT AssignSwapChain(IDDCX_SWAPCHAIN swapchain, LUID adapterLuid, HANDLE hNextSurfaceAvailable);
+    void UnassignSwapChain();
+
+    HRESULT RequestFrame(FRAME_MONITOR_INFO& info);
+
+private:
+    IDDCX_MONITOR m_monitor;
+    MonitorMode m_preffered;
+    MonitorMode m_current;
+    bool m_enabled;
+
+    std::unique_ptr<MonitorProcessor> m_pProcessor;
+};
+
+struct MonitorContextWrapper {
+    MonitorContext* self;
+
+    void Cleanup() {
+        delete self;
+        self = nullptr;
+    }
+};
+
+WDF_DECLARE_CONTEXT_TYPE(MonitorContextWrapper);

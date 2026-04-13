@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 cmake_policy(SET CMP0167 NEW)
 
+if(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_compile_definitions(DEBUG)
+endif()
 #
 # TARGET (default): server
 #
@@ -17,7 +20,7 @@ target_sources(${SERVER_TARGET} PRIVATE
 
 # LibJPEG-Turbo
 if(LINUX)
-    set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")    
+    set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")
 endif()
 
 find_package(libjpeg-turbo REQUIRED)
@@ -37,7 +40,7 @@ pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
 
 # Boost
 if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH "C:\\Program Files\\boost_1_90_0")
+    list(APPEND CMAKE_PREFIX_PATH "C:\\Program Files\\boost_1_90_0\\lib64-msvc-14.3\\cmake")
 endif()
 find_package(Boost REQUIRED)
 
@@ -103,6 +106,9 @@ elseif(WIN32)
     target_link_libraries(monidroid-win32
         PRIVATE
             monidroid-iddcx
+            DXGI.lib
+            OneCoreUAP.lib
+            D3D11.lib
 
         PUBLIC
             monidroid-common
