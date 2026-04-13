@@ -41,7 +41,7 @@ bool Client::identifyClient() {
     bytesNeeded = welcomeWord.size() + sizeof(int);
     
     while (bytesNeeded > 0) {
-        size_t bytesReceived = m_socket.read_some(boost::asio::buffer(recvBuf, bytesNeeded));
+        size_t bytesReceived = m_socket.read_some(boost::asio::buffer(recvBuf, bytesNeeded), ec);
         if (ec) {
             Monidroid::DefaultLog("Socket error \"{}\", identification failed", ec.message());
             return false;
@@ -109,9 +109,6 @@ bool Client::connectMonitor(const Adapter &adapter) {
         return false;
     }
 
-    // Set up buffer
-    allocFrameBuffer(m_preffered.width, m_preffered.height);
-
     m_state = ClientState::Connected;
 
     return true;
@@ -138,10 +135,12 @@ void Client::sendFrames() {
             if (info.data != nullptr) {
                 mapFails = 0;
                 sendFullFrame(info);
+                monitorUnmap(m_monitor);
             } else {
                 ++mapFails;
                 if (mapFails >= 10) {
                     Monidroid::TaggedLog(m_modelName, "Too many map() fails, stopping sending...");
+                    sendError(ErrorCode::TooManyFails);
                     m_state = ClientState::Error;
                 }
             }
@@ -160,15 +159,12 @@ void Client::sendFrames() {
             ++frameFails;
             if (frameFails >= 15) {
                 Monidroid::TaggedLog(m_modelName, "Too many failed frame requests, stopping sending...");
+                sendError(ErrorCode::TooManyFails);
                 m_state = ClientState::Error;
             }
             break;
         }
     }
-}
-
-void Client::allocFrameBuffer(int width, int height) {
-    // 
 }
 
 void Client::initPipeline() {

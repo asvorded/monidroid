@@ -12,12 +12,14 @@
 #include <drm/drm_mode.h>
 
 #include "monidroid.h"
+#include "monidroid/debug.h"
 #include "monidroid/logger.h"
 
 using namespace Monidroid;
 
 static constexpr auto EVDI_HEALTH_CHECK_PATH = "/sys/devices/evdi/version";
 static constexpr auto HEALTH_CHECK_TAG = "EVDI health check";
+static constexpr auto ADAPTER_TAG = "EVDI";
 
 static constexpr int DEV_NO_THRESHOLD = 10000;
 static constexpr int MAX_FRAME_WAIT = 5'000;
@@ -27,11 +29,17 @@ struct MonitorContext {
     static void modeHandler(evdi_mode mode, void *user_data);
     static void updateHandler(int buffer_to_be_updated, void *user_data);
 
-    static evdi_event_context ctx;
+    MonitorContext(
+        evdi_handle handle, int devIndex,
+        MonitorMode preferred, const std::string &modelName
+    );
+
+    evdi_event_context ctx;
 
     evdi_handle handle;
+    int devIndex;
 
-    MonitorMode preffered;
+    MonitorMode preferred;
     MonitorMode current;
     bool enabled;
 
@@ -44,11 +52,21 @@ struct MonitorContext {
     std::array<evdi_rect, 16> rects { };
 };
 
-evdi_event_context MonitorContext::ctx {
-    .dpms_handler = dpmsHandler,
-    .mode_changed_handler = modeHandler,
-    .update_ready_handler = updateHandler,
-};
+MonitorContext::MonitorContext(
+    evdi_handle handle, int devIndex,
+    MonitorMode preferred, const std::string &modelName
+) : handle(handle),
+    devIndex(devIndex),
+    preferred(preferred),
+    current(),
+    modelName(modelName),
+    ctx {
+        .dpms_handler = dpmsHandler,
+        .mode_changed_handler = modeHandler,
+        .update_ready_handler = updateHandler,
+        .user_data = this,
+    }
+{ }
 
 void MonitorContextDeleter::operator()(MonitorContext *p) const {
     delete p;
@@ -64,7 +82,7 @@ void evdiLog(void *user_data, const char *fmt, ...) {
     char str[512];
 
     vsnprintf(str, 512, fmt, va);
-    Monidroid::DefaultLog("{}", str);
+    Monidroid::TaggedLog(ADAPTER_TAG, "{}", str);
 
     va_end(va);
 }
@@ -93,6 +111,11 @@ void MonitorContext::dpmsHandler(int dpms_mode, void *user_data) {
 void MonitorContext::modeHandler(evdi_mode mode, void *user_data) {
     MonitorContext* client = static_cast<MonitorContext*>(user_data);
 
+    Monidroid::TaggedLog(client->modelName, "Mode change: {}x{}@{} -> {}x{}@{}", 
+        client->current.width, client->current.height, client->current.refreshRate,
+        mode.width, mode.height, mode.refresh_rate
+    );
+
     client->current = {
         .width = (u32)mode.width,
         .height = (u32)mode.height,
@@ -106,7 +129,7 @@ void MonitorContext::modeHandler(evdi_mode mode, void *user_data) {
 
 void MonitorContext::updateHandler(int buffer_to_be_updated, void *user_data) {
     MonitorContext* client = static_cast<MonitorContext*>(user_data);
-
+    
     // If there were no DPMS events, monitor is ensbled
     if (client->enabled) {
         evdi_grab_pixels(client->handle, client->rects.begin(), &client->rectsCount);
@@ -167,13 +190,11 @@ Monitor adapterConnectMonitor(const Adapter &self, const std::string &modelName,
         edid.dataBlocks[0].timing.pixel_clock * 10000
     );
 
+    Monitor monitor = Monitor(new MonitorContext (handle, devNumber, info, modelName));
 
-    return Monitor(new MonitorContext {
-        .handle = handle,
-        .preffered = info,
-        .current = {},
-        .modelName = modelName,
-    });
+    allocFrameBuffer(monitor.get(), info.width, info.height);
+
+    return monitor;
 }
 
 MDStatus monitorRequestFrame(const Monitor &self) {
@@ -196,7 +217,7 @@ MDStatus monitorRequestFrame(const Monitor &self) {
         int result = poll(polls.begin(), polls.size(), MAX_FRAME_WAIT);
         if (result == 0) {
             return MDStatus::NoUpdates;
-        } else {
+        } else if (result > 0) {
             evdi_handle_events(self->handle, &self->ctx);
             if (self->enabled) {
                 if (self->rectsCount == 0) {
@@ -206,6 +227,9 @@ MDStatus monitorRequestFrame(const Monitor &self) {
             } else {
                 return MDStatus::MonitorOff;
             }
+        } else {
+            Monidroid::TaggedLog(self->modelName, "Failed to request frame, poll() failed with errno {}", errno);
+            return MDStatus::Error;
         }
     }
 
@@ -217,9 +241,9 @@ MonitorMode monitorRequestMode(const Monitor &self, bool cached) {
 }
 
 void monitorMapCurrent(const Monitor &self, FrameMapInfo &mapInfo) {
-    if (self->enabled || self->rectsCount == 0) {
+    if (!self->enabled || self->rectsCount == 0) {
         mapInfo = { .data = nullptr };
-    } else {   
+    } else {
         mapInfo = {
             .data = (ColorType*)self->frameBufferInfo.buffer,
             .width = (u32)self->frameBufferInfo.width,
@@ -235,6 +259,12 @@ void monitorUnmap(const Monitor &self) {
 
 void monitorDisconnect(Monitor &self) {
     evdi_close(self->handle);
+    std::string path = "/dev/dri/card";
+    path += std::to_string(self->devIndex);
+
+    if (remove(path.c_str()) != 0) {
+        Monidroid::TaggedLog(ADAPTER_TAG, "Card {} removal failed with code {}, ignoring", path, errno);
+    }
 
     self.reset();
 }

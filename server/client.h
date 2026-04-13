@@ -34,7 +34,6 @@ public:
 
     std::thread m_communicationThread; // ???
 
-    void allocFrameBuffer(int width, int height);
     void initPipeline();
 
     void sendFullFrame(const FrameMapInfo& info);
