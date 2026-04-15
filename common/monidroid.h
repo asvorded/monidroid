@@ -33,13 +33,15 @@ namespace Monidroid {
 
     enum class ErrorCode : int {
         MessageEncoded            = 0,
+
         NotIdentified             = 1,
         IncorrectMonitorOptions   = 2,
-        MonitorConnectFail        = 3,
-        TooManyFails              = 4,
+        InvalidClient             = 3,
+        
+        DisconnectedByServer      = 10,
+        MonitorConnectFail        = 11,
+        TooManyFails              = 12,
 
-        InvalidClient             = 10,
-
-        Unspecified               = 1000,
+        Unspecified               = 100,
     };
 } // namespace Monidroid

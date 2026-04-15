@@ -3,8 +3,6 @@
 #include "monidroid.h"
 #include "monidroid/logger.h"
 
-constexpr auto TAG = "Server";
-
 Server::Server(boost::asio::io_context &context)
     : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::MONIDROID_PORT))
 {
@@ -13,82 +11,78 @@ Server::Server(boost::asio::io_context &context)
         throw std::runtime_error("Unexpected graphics adapter inaccessibility detected during server initialization");
     }
 
-    serverMainAsync();
-
     m_running = true;
     Monidroid::TaggedLog(TAG, "Server started");
+    
+    serverMainAsync();
 }
 
 Server::~Server() {
-    m_acceptor.close();
-    
-    if (m_thread.joinable()) {
-        m_thread.join();
+    boost::system::error_code ec;
+    m_acceptor.cancel(ec);
+    m_acceptor.close(ec);
+
+    std::set<std::shared_ptr<Client>> copy;
+    {
+        std::lock_guard g(lock);
+        copy = clients;
+        clients.clear();
+    }
+    if (!copy.empty()) {
+        Monidroid::TaggedLog(TAG, "Some clients are still connected, forcing disconnect...");
+        for (auto& c : copy) {
+            c->forceDisconnect();
+            std::thread t = c->detachThread();
+            if (t.joinable()) {
+                t.join();
+            }
+        }
     }
         
-    Monidroid::TaggedLog("Server", "Server stopped");
+    Monidroid::TaggedLog(TAG, "Server stopped");
 }
 
 bool Server::running() const {
     return m_running;
 }
 
-void Server::serverMain() {
-    while (m_running) {
-        boost::system::error_code ec;
-
-        auto clientSocket = m_acceptor.accept(ec);
-        if (!ec) {
-            auto client = std::make_shared<Client>(std::move(clientSocket));
-            
-            // TODO: make list of clients
-            client->m_communicationThread = std::thread([this, client]() {
-                communicationMain(client);
-            });
-            client->m_communicationThread.detach();
-        } else {
-            Monidroid::TaggedLog("Server", "Ended accepting connections (message: {})", ec.message());
-            break;
-        }
-    }
-}
-
 void Server::serverMainAsync() {
-    // TODO: ensure proper `this` lifetime
     m_acceptor.async_accept([this](const boost::system::error_code &ec, ip::tcp::socket clientSocket) {
         if (!ec) {
             auto client = std::make_shared<Client>(std::move(clientSocket));
+            {
+                std::lock_guard g(lock);
+                clients.insert(client);
+            }
             
-            // TODO: make list of clients
-            client->m_communicationThread = std::thread([this, client]() {
+            client->attachThread(std::thread([this, client]() {
                 communicationMain(client);
-            });
-            client->m_communicationThread.detach();
+            }));
 
             serverMainAsync();
         } else {
-            Monidroid::TaggedLog("Server", "Ended accepting connections (message: {})", ec.message());
+            Monidroid::TaggedLog(TAG, "Ended accepting connections (message: {})", ec.message());
             m_running = false;
         }
     });
 }
 
 void Server::communicationMain(std::shared_ptr<Client> client) {
-    Monidroid::DefaultLog("New client connected");
+    Monidroid::TaggedLog(TAG, "New client connected");
 
-    bool result;
+    bool result = false;
 
     // 1. Identify device
     result = client->identifyClient();
     if (!result) {
-        Monidroid::DefaultLog("Disconnected from client due to identification error");
+        Monidroid::TaggedLog(TAG, "Disconnected from client due to identification error");
         return;
     }
 
     // 2. Connect monitor
     result = client->connectMonitor(m_adapter);
     if (!result) {
-        Monidroid::DefaultLog("Failed to connect monitor, send error and disconnect");
+        Monidroid::TaggedLog(TAG, "Failed to connect monitor, send error and disconnect");
         client->sendError(Monidroid::ErrorCode::MonitorConnectFail);
         return;
     }
@@ -99,5 +93,12 @@ void Server::communicationMain(std::shared_ptr<Client> client) {
     // 4. Disconnect monitor
     client->disconnectMonitor();
 
-    Monidroid::DefaultLog("Client {} disconnected", client->m_modelName);
+    {
+        std::lock_guard g(lock);
+        if (clients.erase(client)) {
+            client->detachThread().detach();
+        }
+    }
+    
+    Monidroid::TaggedLog(TAG, "Client {} disconnected", client->modelName());
 }

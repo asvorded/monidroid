@@ -58,7 +58,8 @@ MonitorContext::MonitorContext(
 ) : handle(handle),
     devIndex(devIndex),
     preferred(preferred),
-    current(),
+    current(preferred),
+    enabled(false),
     modelName(modelName),
     ctx {
         .dpms_handler = dpmsHandler,
@@ -130,7 +131,7 @@ void MonitorContext::modeHandler(evdi_mode mode, void *user_data) {
 void MonitorContext::updateHandler(int buffer_to_be_updated, void *user_data) {
     MonitorContext* client = static_cast<MonitorContext*>(user_data);
     
-    // If there were no DPMS events, monitor is ensbled
+    // If there were no DPMS events, monitor is enabled
     if (client->enabled) {
         evdi_grab_pixels(client->handle, client->rects.begin(), &client->rectsCount);
     } else {
@@ -205,6 +206,7 @@ MDStatus monitorRequestFrame(const Monitor &self) {
             // mode changed according to current implementation
             return MDStatus::ModeChanged;
         }
+        self->enabled = true;
     } else {
         // DANGER: current definition of struct evdi_device_context is {
         //     int fd;
@@ -215,8 +217,15 @@ MDStatus monitorRequestFrame(const Monitor &self) {
             pollfd { .fd = *reinterpret_cast<int*>(self->handle), .events = POLLIN }
         };
         int result = poll(polls.begin(), polls.size(), MAX_FRAME_WAIT);
-        if (result == 0) {
-            return MDStatus::NoUpdates;
+        if (result < 0) {
+            Monidroid::TaggedLog(self->modelName, "Failed to request frame, poll() failed with errno {}", errno);
+            return MDStatus::Error;
+        } else if (result == 0) {
+            if (self->enabled) {
+                return MDStatus::NoUpdates;
+            } else {
+                return MDStatus::MonitorOff;
+            }
         } else if (result > 0) {
             evdi_handle_events(self->handle, &self->ctx);
             if (self->enabled) {
@@ -228,8 +237,6 @@ MDStatus monitorRequestFrame(const Monitor &self) {
                 return MDStatus::MonitorOff;
             }
         } else {
-            Monidroid::TaggedLog(self->modelName, "Failed to request frame, poll() failed with errno {}", errno);
-            return MDStatus::Error;
         }
     }
 
