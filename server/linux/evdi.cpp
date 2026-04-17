@@ -190,6 +190,7 @@ Monitor adapterConnectMonitor(const Adapter &self, const std::string &modelName,
         info.width * info.height,
         edid.dataBlocks[0].timing.pixel_clock * 10000
     );
+    self->lastNumber = devNumber;
 
     Monitor monitor = Monitor(new MonitorContext (handle, devNumber, info, modelName));
 

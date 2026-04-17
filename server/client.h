@@ -45,7 +45,7 @@ private:
 
     void sendFullFrame(const FrameMapInfo& info);
     void sendMonitorOff();
-
+    
     static void mediaConfigure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, Client *self);
     static gboolean busWatch(GstBus * bus, GstMessage * message, Client *self);
     static void needData(GstElement *appsrc, guint length, Client *self);
@@ -67,7 +67,6 @@ public:
     bool identifyClient();
     bool connectMonitor(const Adapter& adapter);
     void sendFrames();
-    void sendFrames2();
     void disconnectMonitor();
 
     void forceDisconnect();
