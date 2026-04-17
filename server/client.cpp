@@ -50,7 +50,7 @@ bool Client::identifyClient() {
 
     boost::system::error_code ec;
 
-    std::string_view welcomeWord(Monidroid::WELCOME_WORD);
+    std::string_view welcomeWord(Monidroid::CL_WELCOME_WORD);
     bytesNeeded = welcomeWord.size() + sizeof(int);
     
     while (bytesNeeded > 0) {
@@ -204,7 +204,7 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     int jpegSize = _jpegsize;
     
     std::array<boost::asio::const_buffer, 3> buffers {
-        boost::asio::buffer(std::string_view(Monidroid::FRAME_WORD)),
+        boost::asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
         boost::asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
         boost::asio::buffer(jpegData, jpegSize),
     };
@@ -224,7 +224,7 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
 
 
 void Client::sendMonitorOff() {
-    std::string_view frameWord(Monidroid::FRAME_WORD);
+    std::string_view frameWord(Monidroid::SV_FRAME_WORD);
     
     int jpegSize = 0;
     size_t bufSize = frameWord.size() + sizeof(jpegSize);
@@ -257,7 +257,7 @@ void Client::forceDisconnect() {
 
 void Client::sendError(ErrorCode code) {
     std::array<boost::asio::const_buffer, 2> buffers = {
-        boost::asio::buffer(std::string_view(Monidroid::ERROR_WORD)),
+        boost::asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
         boost::asio::buffer((void*)&code, sizeof(code))
     };
 
@@ -268,12 +268,12 @@ void Client::sendError(ErrorCode code) {
 }
 
 void Client::sendError(const std::string_view msg) {
-    std::string_view errorWord(Monidroid::ERROR_WORD);
+    std::string_view errorWord(Monidroid::SV_ERROR_WORD);
     ErrorCode code = ErrorCode::MessageEncoded;
     int len = msg.size();
 
     std::array<boost::asio::const_buffer, 4> buffers {
-        boost::asio::buffer(std::string_view(Monidroid::ERROR_WORD)),
+        boost::asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
         boost::asio::buffer((void*)&code, sizeof(code)),
         boost::asio::buffer((void*)&len, sizeof(len)),
         boost::asio::buffer(msg),

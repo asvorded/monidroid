@@ -5,13 +5,13 @@
 #include <format>
 #include <sstream>
 
-#include "monidroid.h"
+#include "monidroid/protocol.h"
 #include "monidroid/logger.h"
 
 EchoServer::EchoServer(io_context &context) 
     : m_socket(context),
       m_echoMessage(makeEchoMessage()),
-      m_recvbuf(Monidroid::CLIENT_ECHO_WORD),
+      m_recvbuf(Monidroid::CL_ECHO_WORD),
       m_started(false) { }
 
 EchoServer::~EchoServer() {
@@ -22,7 +22,7 @@ void EchoServer::start() {
     if (m_started) return;
 
     auto executor = m_socket.get_executor();
-    auto endpoint = ip::udp::endpoint(ip::udp::v4(), Monidroid::MONIDROID_PORT);
+    auto endpoint = ip::udp::endpoint(ip::udp::v4(), Monidroid::PROTOCOL_PORT);
     m_socket = ip::udp::socket(executor, endpoint);
 
     // m_echoThread = std::thread([this]() { echoMain(); });
@@ -50,7 +50,7 @@ void EchoServer::echoMainAsync() {
         [this](const boost::system::error_code& error, std::size_t bytesReceived) 
         {
             if (!error) {
-                if (bytesReceived == m_recvbuf.size() && m_recvbuf == Monidroid::CLIENT_ECHO_WORD) {
+                if (bytesReceived == m_recvbuf.size() && m_recvbuf == Monidroid::CL_ECHO_WORD) {
                     boost::system::error_code ec;
                     size_t bytesSent = m_socket.send_to(boost::asio::buffer(m_echoMessage), m_from, 0, ec);
                     if (bytesSent == 0 || ec) {
@@ -68,7 +68,7 @@ void EchoServer::echoMainAsync() {
 }
 
 std::vector<char> EchoServer::makeEchoMessage() {
-    std::string_view svWord(Monidroid::SERVER_ECHO_WORD);
+    std::string_view svWord(Monidroid::SV_ECHO_WORD);
     std::string svHostname(boost::asio::ip::host_name());
     int length = svHostname.size();
 

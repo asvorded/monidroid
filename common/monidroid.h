@@ -11,37 +11,5 @@
     Type& operator=(Type&&);
 
 namespace Monidroid {
-
-    // Network
-    inline constexpr auto MONIDROID_PORT_SZ         = "14765";
-    inline constexpr auto MONIDROID_PORT            =  14765;
-    
-    // Protocol
-    inline constexpr auto WELCOME_WORD              = "WELCOME";
-    
-    inline constexpr auto FRAME_WORD                = "FRAME";
-
-    inline constexpr auto ERROR_WORD                = "ERROR";
-
-    // ECHO
-    inline constexpr auto CLIENT_ECHO_WORD          = "MDCLIENT_ECHO";
-    
-    inline constexpr auto SERVER_ECHO_WORD          = "MDIDD_ECHO";
-
-    // Info
     inline constexpr auto MAX_MONITORS_SUPPORTED    = 16;
-
-    enum class ErrorCode : int {
-        MessageEncoded            = 0,
-
-        NotIdentified             = 1,
-        IncorrectMonitorOptions   = 2,
-        InvalidClient             = 3,
-        
-        DisconnectedByServer      = 10,
-        MonitorConnectFail        = 11,
-        TooManyFails              = 12,
-
-        Unspecified               = 100,
-    };
-} // namespace Monidroid
+}

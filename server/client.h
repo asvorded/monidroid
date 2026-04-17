@@ -10,6 +10,7 @@
 #include <gst/rtsp-server/rtsp-server.h>
 
 #include "monidroid.h"
+#include "monidroid/protocol.h"
 
 #include "native.h"
 

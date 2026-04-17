@@ -4,7 +4,7 @@
 #include "monidroid/logger.h"
 
 Server::Server(boost::asio::io_context &context)
-    : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::MONIDROID_PORT))
+    : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::PROTOCOL_PORT))
 {
     m_adapter = openAdapter();
     if (!m_adapter) {
