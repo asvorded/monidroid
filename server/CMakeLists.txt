@@ -53,11 +53,6 @@ target_link_libraries(${SERVER_TARGET}
         PkgConfig::GStreamer
 )
 
-if(WIN32)
-
-elseif(LINUX)
-endif()
-
 if(LINUX)
     #
     # TARGET (default): Linux library
@@ -78,8 +73,10 @@ if(LINUX)
     find_library(evdi libevdi.so)
 
     target_link_libraries(monidroid-linux
-        PUBLIC
+        PRIVATE
             evdi
+
+        PUBLIC
             monidroid-common
     )
 
