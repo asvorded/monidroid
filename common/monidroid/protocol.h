@@ -37,7 +37,9 @@ namespace Monidroid {
         inline constexpr auto SV_ERROR_WORD        = "SERRC";
         
         // Extensions
-        inline constexpr auto EXTENSION_WORD       = "MDNXT";
+        inline constexpr auto EXTENSION_WORD       = "MDEXT";
+
+        inline constexpr auto NO_EXTENSION_WORD    = "MDNOX";
     }
 
     namespace Extensions {
