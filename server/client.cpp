@@ -122,6 +122,8 @@ bool Client::connectMonitor(const Adapter &adapter) {
         return false;
     }
 
+    m_inputThread = std::jthread([this]() { receiveMain(); });
+
     m_state = ClientState::Connected;
 
     return true;
@@ -180,6 +182,9 @@ void Client::sendFrames() {
     }
 }
 
+void Client::receiveMain() {
+}
+
 void Client::sendFullFrame(const FrameMapInfo& info) {
     tjhandle tj = tj3Init(TJINIT_COMPRESS);
     unsigned char *jpegData = static_cast<unsigned char*>(tj3Alloc(1));
@@ -212,9 +217,7 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     boost::system::error_code ec;
     boost::asio::write(m_socket, buffers, ec);
     if (ec) {
-        m_sending = false;
         std::cout << ec.message() << "\n";
-        // alternative
         m_state = ClientState::ConnectionClosed;
     }
 
@@ -236,21 +239,26 @@ void Client::sendMonitorOff() {
     boost::system::error_code ec;
     boost::asio::write(m_socket, boost::asio::buffer(sendBuffer.get(), bufSize), ec);
     if (ec) {
-        m_sending = false;
         std::cout << ec.message() << "\n";
-        // alternative
         m_state = ClientState::ConnectionClosed;
     }
 }
 
 void Client::disconnectMonitor() {
+    if (m_inputThread.joinable()) {
+        m_inputThread.join();
+    }
+
     // TODO Windows: process 1291 () error code
     monitorDisconnect(m_monitor);
+    
     m_state = ClientState::Disconnected;
 }
 
-void Client::forceDisconnect() {
-    // sendError(ErrorCode::DisconnectedByServer);
+void Client::forceDisconnect(bool withError) {
+    if (withError) {
+        sendError(ErrorCode::DisconnectedByServer);
+    }
 
     m_state = ClientState::ConnectionClosed;
 }

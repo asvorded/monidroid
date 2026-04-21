@@ -22,6 +22,8 @@ Server::~Server() {
     m_acceptor.cancel(ec);
     m_acceptor.close(ec);
 
+    //                                ( this thread |     client's thread     )
+    // Make copy to prevent deadlocks (   t.join()  | std::guard_lock g(lock) );
     std::set<std::shared_ptr<Client>> copy;
     {
         std::lock_guard g(lock);
@@ -70,35 +72,42 @@ void Server::serverMainAsync() {
 void Server::communicationMain(std::shared_ptr<Client> client) {
     Monidroid::TaggedLog(TAG, "New client connected");
 
-    bool result = false;
+    try {
+        bool result = false;
 
-    // 1. Identify device
-    result = client->identifyClient();
-    if (!result) {
-        Monidroid::TaggedLog(TAG, "Disconnected from client due to identification error");
-        return;
+        // 1. Identify device
+        result = client->identifyClient();
+        if (!result) {
+            Monidroid::TaggedLog(TAG, "Disconnected from client due to identification error");
+            return;
+        }
+        
+        // 2. Connect monitor
+        result = client->connectMonitor(m_adapter);
+        if (!result) {
+            Monidroid::TaggedLog(TAG, "Failed to connect monitor, send error and disconnect");
+            client->sendError(Monidroid::ErrorCode::MonitorConnectFail);
+            return;
+        }
+        
+        // 3. Send frames
+        client->sendFrames();
+        
+        // 4. Disconnect monitor
+        client->disconnectMonitor();
+
+        Monidroid::TaggedLog(TAG, "Client {} disconnected", client->modelName());
+    } catch (const std::runtime_error& e) {
+        Monidroid::TaggedLog(client->modelName(), e.what());
+        Monidroid::TaggedLog(client->modelName(), "Disconnecting die to critical error");
+        client->sendError(e.what());
     }
-
-    // 2. Connect monitor
-    result = client->connectMonitor(m_adapter);
-    if (!result) {
-        Monidroid::TaggedLog(TAG, "Failed to connect monitor, send error and disconnect");
-        client->sendError(Monidroid::ErrorCode::MonitorConnectFail);
-        return;
-    }
-
-    // 3. Send frames
-    client->sendFrames();
-    
-    // 4. Disconnect monitor
-    client->disconnectMonitor();
 
     {
         std::lock_guard g(lock);
         if (clients.erase(client)) {
+            // No lock(), because we are in detachThread() thread
             client->detachThread().detach();
         }
     }
-    
-    Monidroid::TaggedLog(TAG, "Client {} disconnected", client->modelName());
 }

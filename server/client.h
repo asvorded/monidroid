@@ -25,34 +25,30 @@ struct Client {
     static constexpr auto CLIENT_TAG = "Client";
 
 private:
+    ClientState m_state = ClientState::New;
+
     ip::tcp::socket m_socket;
     std::vector<char> m_netBuffer;
-    bool m_sending = false;
-
-    guint id = 0;
-    GstElement *appsrc = nullptr;
-    guint64 time = 0;
+    std::jthread m_inputThread;
 
     MonitorMode m_preffered;
     std::string m_modelName;
-    ClientState m_state = ClientState::New;
 
     Monitor m_monitor;
 
     std::thread m_communicationThread;
 
-    GMainContext *m_context;
-    GMainLoop *m_loop;
-
     void sendFullFrame(const FrameMapInfo& info);
     void sendMonitorOff();
     
-    static void mediaConfigure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, Client *self);
-    static gboolean busWatch(GstBus * bus, GstMessage * message, Client *self);
-    static void needData(GstElement *appsrc, guint length, Client *self);
-    static void enoughData(GstElement *appsrc, Client *self);
+    // static void mediaConfigure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, Client *self);
+    // static gboolean busWatch(GstBus * bus, GstMessage * message, Client *self);
+    // static void needData(GstElement *appsrc, guint length, Client *self);
+    // static void enoughData(GstElement *appsrc, Client *self);
 
-    static gboolean pushData(Client* client);
+    // static gboolean pushData(Client* client);
+
+    void receiveMain();
 
 public:
     Client(ip::tcp::socket socket);
@@ -70,7 +66,7 @@ public:
     void sendFrames();
     void disconnectMonitor();
 
-    void forceDisconnect();
+    void forceDisconnect(bool withErrorCode = false);
 
     void sendError(ErrorCode code);
     void sendError(const std::string_view msg);
