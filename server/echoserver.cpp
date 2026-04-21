@@ -4,7 +4,9 @@
 #include <iostream>
 #include <format>
 #include <sstream>
+#include <fstream>
 
+#include "monidroid.h"
 #include "monidroid/protocol.h"
 #include "monidroid/logger.h"
 
@@ -73,13 +75,21 @@ std::vector<char> EchoServer::makeEchoMessage() {
     int length = svHostname.size();
 
     std::vector<char> out;
-    out.reserve(svWord.size() + sizeof(length) + svHostname.size());
+    out.reserve(svWord.size() + 3 + sizeof(length) + svHostname.size());
     
+    // "SECHO"
     out.insert(out.end(), svWord.cbegin(), svWord.cend());
+
+    // OS ID
+    constexpr std::string_view osId(MD_OS_ID);
+    static_assert(osId.size() == 3);
+    out.insert(out.end(), osId.begin(), osId.end());
     
+    // Hostname length
     const char *pLength = reinterpret_cast<const char*>(&length);
     out.insert(out.end(), pLength, pLength + sizeof(length));
     
+    // Hostname
     out.insert(out.end(), svHostname.cbegin(), svHostname.cend());
     
     return out;

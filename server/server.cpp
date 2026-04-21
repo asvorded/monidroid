@@ -98,7 +98,7 @@ void Server::communicationMain(std::shared_ptr<Client> client) {
 
         Monidroid::TaggedLog(TAG, "Client {} disconnected", client->modelName());
     } catch (const std::runtime_error& e) {
-        Monidroid::TaggedLog(client->modelName(), e.what());
+        Monidroid::TaggedLog(client->modelName(), "{}", e.what());
         Monidroid::TaggedLog(client->modelName(), "Disconnecting die to critical error");
         client->sendError(e.what());
     }
