@@ -72,9 +72,15 @@ if(LINUX)
     # EVDI library
     find_library(evdi libevdi.so)
 
+    # libevdev
+    pkg_check_modules(libevdev REQUIRED IMPORTED_TARGET
+        libevdev
+    )
+
     target_link_libraries(monidroid-linux
         PRIVATE
             evdi
+            PkgConfig::libevdev
 
         PUBLIC
             monidroid-common

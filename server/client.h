@@ -14,7 +14,9 @@
 
 #include "native.h"
 
+using namespace boost;
 using namespace boost::asio;
+using namespace boost::system;
 using namespace Monidroid;
 
 enum class ClientState {
@@ -40,16 +42,9 @@ private:
 
     void sendFullFrame(const FrameMapInfo& info);
     void sendMonitorOff();
-    
-    // static void mediaConfigure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, Client *self);
-    // static gboolean busWatch(GstBus * bus, GstMessage * message, Client *self);
-    // static void needData(GstElement *appsrc, guint length, Client *self);
-    // static void enoughData(GstElement *appsrc, Client *self);
-
-    // static gboolean pushData(Client* client);
 
     void receiveMain();
-
+    void handleInput();
 public:
     Client(ip::tcp::socket socket);
     ~Client();

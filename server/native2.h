@@ -6,12 +6,12 @@
 
 using namespace Monidroid;
 
-enum class MDStatus;
+enum class FrameStatus;
 
 struct FrameMapInfo;
 
 struct MonitorContext2 {
-	MDStatus requestFrame();
+	FrameStatus requestFrame();
 	MonitorMode requestMode(bool cached);
 
 	void mapCurrent(FrameMapInfo &mapInfo);

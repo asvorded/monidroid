@@ -238,7 +238,7 @@ Monitor adapterConnectMonitor(const Adapter& self, const std::string& modelName,
     return monitor;
 }
 
-MDStatus monitorRequestFrame(const Monitor& self) {
+FrameStatus monitorRequestFrame(const Monitor& self) {
     //Adapter adapter = self->adapter.lock();
     //if (!adapter) {
     //    throw std::runtime_error("Unexpected inaccessibility of Monidroid Graphics Adapter!");
@@ -253,17 +253,17 @@ MDStatus monitorRequestFrame(const Monitor& self) {
         &bytesReceived, nullptr)
     ) {
         Monidroid::TaggedLog(self->modelName, "Frame request failed, DeviceIoControl() returned {}", GetLastError());
-        return MDStatus::Error;
+        return FrameStatus::Error;
     }
 
     // Check self power state
     if (!out.enabled) {
-        return MDStatus::MonitorOff;
+        return FrameStatus::MonitorOff;
     }
 
     // Check frame handle (if there are any updates)
     if (!out.frameHandle) {
-        return MDStatus::NoUpdates;
+        return FrameStatus::NoUpdates;
     }
     
     // Duplicate driver's render adapter to open shared resources
@@ -274,7 +274,7 @@ MDStatus monitorRequestFrame(const Monitor& self) {
         HRESULT hr = CreateD3DDevice(out.adapterLuid, &self->m_device, &self->m_deviceContext);
         if (FAILED(hr)) {
             Monidroid::TaggedLog(self->modelName, "Failed to initialize D3D device, HRESULT: {:#010X}", (unsigned long)hr);
-            return MDStatus::Error;
+            return FrameStatus::Error;
         }
         self->adapterLuid = out.adapterLuid;
     }
@@ -288,7 +288,7 @@ MDStatus monitorRequestFrame(const Monitor& self) {
     )) {
         Monidroid::TaggedLog(self->modelName, "Failed to open frame resource, DuplicateHandle() returned {}", GetLastError());
         CloseHandle(out.frameHandle);
-        return MDStatus::Error;
+        return FrameStatus::Error;
     }
 
     ComPtr<ID3D11Texture2D> sharedTexture;
@@ -296,7 +296,7 @@ MDStatus monitorRequestFrame(const Monitor& self) {
     CloseHandle(thisFrameHandle);
     if (FAILED(hr)) {
         Monidroid::TaggedLog(self->modelName, "D3D shared resource cannot be opened, HRESULT: {:#010X}", (unsigned long)hr);
-        return MDStatus::Error;
+        return FrameStatus::Error;
     }
 
     D3D11_TEXTURE2D_DESC desc;
@@ -312,7 +312,7 @@ MDStatus monitorRequestFrame(const Monitor& self) {
     hr = self->m_device->CreateTexture2D(&desc, nullptr, &self->currentFrame);
     if (FAILED(hr)) {
         Monidroid::TaggedLog(self->modelName, "Failed to stage frame, HRESULT: {:#010X}", (unsigned long)hr);
-        return MDStatus::Error;
+        return FrameStatus::Error;
     }
 
     self->m_deviceContext->CopyResource(self->currentFrame.Get(), sharedTexture.Get());
@@ -325,9 +325,9 @@ MDStatus monitorRequestFrame(const Monitor& self) {
         );
         self->currentMode.width = desc.Width;
         self->currentMode.height = desc.Height;
-        return MDStatus::ModeChanged;
+        return FrameStatus::ModeChanged;
     }
-    return MDStatus::FrameReady;
+    return FrameStatus::FrameReady;
 }
 
 MonitorMode monitorRequestMode(const Monitor& self, bool cached) {

@@ -122,8 +122,6 @@ bool Client::connectMonitor(const Adapter &adapter) {
         return false;
     }
 
-    m_inputThread = std::jthread([this]() { receiveMain(); });
-
     m_state = ClientState::Connected;
 
     return true;
@@ -136,14 +134,16 @@ void Client::sendFrames() {
 
     m_state = ClientState::Streaming;
 
+    m_inputThread = std::jthread([this]() { receiveMain(); });
+
     FrameMapInfo info;
     unsigned int dataPixSize;
 
     while (m_state == ClientState::Streaming) {
-        MDStatus status = monitorRequestFrame(m_monitor);
+        FrameStatus status = monitorRequestFrame(m_monitor);
         switch (status) {
-        case MDStatus::ModeChanged:
-        case MDStatus::FrameReady:
+        case FrameStatus::ModeChanged:
+        case FrameStatus::FrameReady:
             frameFails = 0;
 
             monitorMapCurrent(m_monitor, info);
@@ -160,11 +160,11 @@ void Client::sendFrames() {
                 }
             }
             break;
-        case MDStatus::NoUpdates:
+        case FrameStatus::NoUpdates:
             frameFails = 0;
 
             break;
-        case MDStatus::MonitorOff:
+        case FrameStatus::MonitorOff:
             frameFails = 0;
 
             sendMonitorOff();
@@ -183,6 +183,44 @@ void Client::sendFrames() {
 }
 
 void Client::receiveMain() {
+    std::string word(5, 'X');
+
+    try {
+        while (m_state == ClientState::Streaming) {
+            asio::read(m_socket, asio::buffer(word));
+            
+            if (word == CL_INPUT_WORD) {
+                handleInput();
+            } else {
+                Monidroid::TaggedLog(m_modelName, "Unknown word {}, ignoring", word);
+            }
+        }
+    } catch (const system_error& e) {
+        if (e.code() != asio::error::eof) {
+            Monidroid::TaggedLog(m_modelName, "Receive loop failed: \"{}\"", e.code().message());
+        }
+    }
+}
+
+void Client::handleInput() {
+    char buf[256];
+    // Read type
+    asio::read(m_socket, asio::buffer(buf, 1));
+    switch ((InputType)buf[0]) {
+    case InputType::MouseMove: {
+        // <X offset(int)><Y offset(int)> (total 8 bytes)
+        asio::read(m_socket, asio::buffer(buf, 8));
+        int *deltas = reinterpret_cast<int*>(buf);
+        monitorSendInput(m_monitor, deltas[0], deltas[1]);
+        break;
+    }
+    case InputType::MouseButtons:
+        break;
+    case InputType::MouseScroll:
+        break;
+    default:
+        throw new std::runtime_error("[TODO] Input type is not implemented");
+    }
 }
 
 void Client::sendFullFrame(const FrameMapInfo& info) {
@@ -208,14 +246,14 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     
     int jpegSize = _jpegsize;
     
-    std::array<boost::asio::const_buffer, 3> buffers {
-        boost::asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
-        boost::asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
-        boost::asio::buffer(jpegData, jpegSize),
+    std::array<const_buffer, 3> buffers {
+        asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
+        asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
+        asio::buffer(jpegData, jpegSize),
     };
     
-    boost::system::error_code ec;
-    boost::asio::write(m_socket, buffers, ec);
+    error_code ec;
+    asio::write(m_socket, buffers, ec);
     if (ec) {
         std::cout << ec.message() << "\n";
         m_state = ClientState::ConnectionClosed;
@@ -231,13 +269,14 @@ void Client::sendMonitorOff() {
     
     int jpegSize = 0;
     size_t bufSize = frameWord.size() + sizeof(jpegSize);
-    auto sendBuffer = std::make_unique<char[]>(bufSize);
+
+    std::array<const_buffer, 2> buffers {
+        asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
+        asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
+    };
     
-    std::memcpy(sendBuffer.get(), frameWord.data(), frameWord.size());
-    std::memcpy(sendBuffer.get() + frameWord.size(), (void*)&jpegSize, sizeof(jpegSize));
-    
-    boost::system::error_code ec;
-    boost::asio::write(m_socket, boost::asio::buffer(sendBuffer.get(), bufSize), ec);
+    error_code ec;
+    asio::write(m_socket, buffers, ec);
     if (ec) {
         std::cout << ec.message() << "\n";
         m_state = ClientState::ConnectionClosed;
@@ -251,44 +290,46 @@ void Client::disconnectMonitor() {
 
     // TODO Windows: process 1291 () error code
     monitorDisconnect(m_monitor);
-    
+
     m_state = ClientState::Disconnected;
 }
 
 void Client::forceDisconnect(bool withError) {
     if (withError) {
         sendError(ErrorCode::DisconnectedByServer);
+    } else {
+        error_code ec;
+        m_socket.shutdown(m_socket.shutdown_both, ec);
     }
 
     m_state = ClientState::ConnectionClosed;
 }
 
 void Client::sendError(ErrorCode code) {
-    std::array<boost::asio::const_buffer, 2> buffers = {
-        boost::asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
-        boost::asio::buffer((void*)&code, sizeof(code))
+    std::array<const_buffer, 2> buffers = {
+        asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
+        asio::buffer((void*)&code, sizeof(code))
     };
 
-    boost::system::error_code ec;
-    boost::asio::write(m_socket, buffers, ec);
+    error_code ec;
+    asio::write(m_socket, buffers, ec);
     if (ec) std::cout << ec.message() << "\n";
-    m_socket.shutdown(ip::tcp::socket::shutdown_both, ec);
+    m_socket.shutdown(m_socket.shutdown_both, ec);
 }
 
 void Client::sendError(const std::string_view msg) {
-    std::string_view errorWord(Monidroid::SV_ERROR_WORD);
     ErrorCode code = ErrorCode::MessageEncoded;
     int len = msg.size();
 
-    std::array<boost::asio::const_buffer, 4> buffers {
-        boost::asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
-        boost::asio::buffer((void*)&code, sizeof(code)),
-        boost::asio::buffer((void*)&len, sizeof(len)),
-        boost::asio::buffer(msg),
+    std::array<const_buffer, 4> buffers {
+        asio::buffer(std::string_view(Monidroid::SV_ERROR_WORD)),
+        asio::buffer((void*)&code, sizeof(code)),
+        asio::buffer((void*)&len, sizeof(len)),
+        asio::buffer(msg),
     };
 
-    boost::system::error_code ec;
-    boost::asio::write(m_socket, buffers, ec);
+    error_code ec;
+    asio::write(m_socket, buffers, ec);
     if (ec) std::cout << ec.message() << "\n";
-    m_socket.shutdown(ip::tcp::socket::shutdown_both, ec);
+    m_socket.shutdown(m_socket.shutdown_both, ec);
 }

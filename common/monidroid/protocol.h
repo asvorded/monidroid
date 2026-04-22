@@ -28,6 +28,18 @@ namespace Monidroid {
         
         // Client side
         inline constexpr auto CL_WELCOME_WORD      = "CWLCM";
+
+        inline constexpr auto CL_INPUT_WORD        = "CINPT";
+
+        enum class InputType : int {
+            MouseMove    = 1,
+            MouseButtons = 2,
+            MouseScroll  = 3,
+
+            Mouse        = 4,
+
+            Touch        = 5,
+        };
         
         // Server side        
         inline constexpr auto SV_STREAM_WORD       = "SSTRM";

@@ -1,7 +1,5 @@
 #include "native.h"
 
-#include <evdi_lib.h>
-
 #include <stdarg.h>
 #include <stdexcept>
 #include <fstream>
@@ -9,7 +7,11 @@
 #include <string>
 
 #include <sys/poll.h>
+#include <sys/file.h>
 #include <drm/drm_mode.h>
+
+#include <evdi_lib.h>
+#include <libevdev/libevdev-uinput.h>
 
 #include "monidroid.h"
 #include "monidroid/debug.h"
@@ -34,21 +36,28 @@ struct MonitorContext {
         MonitorMode preferred, const std::string &modelName
     );
 
-    evdi_event_context ctx;
+    evdi_event_context ctx {
+        .dpms_handler = dpmsHandler,
+        .mode_changed_handler = modeHandler,
+        .update_ready_handler = updateHandler,
+        .user_data = this,
+    };
 
     evdi_handle handle;
     int devIndex;
 
+    libevdev_uinput *uinput = nullptr;
+
     MonitorMode preferred;
     MonitorMode current;
-    bool enabled;
+    bool enabled = false;
 
     std::string modelName;
 
     std::vector<ColorType> frameBuffer;
-    evdi_buffer frameBufferInfo;
+    evdi_buffer frameBufferInfo { };
     
-    int rectsCount;
+    int rectsCount = 0;
     std::array<evdi_rect, 16> rects { };
 };
 
@@ -59,14 +68,7 @@ MonitorContext::MonitorContext(
     devIndex(devIndex),
     preferred(preferred),
     current(preferred),
-    enabled(false),
-    modelName(modelName),
-    ctx {
-        .dpms_handler = dpmsHandler,
-        .mode_changed_handler = modeHandler,
-        .update_ready_handler = updateHandler,
-        .user_data = this,
-    }
+    modelName(modelName)
 { }
 
 void MonitorContextDeleter::operator()(MonitorContext *p) const {
@@ -192,20 +194,36 @@ Monitor adapterConnectMonitor(const Adapter &self, const std::string &modelName,
     );
     self->lastNumber = devNumber;
 
-    Monitor monitor = Monitor(new MonitorContext (handle, devNumber, info, modelName));
+    Monitor monitor = Monitor(new MonitorContext(handle, devNumber, info, modelName));
 
     allocFrameBuffer(monitor.get(), info.width, info.height);
 
+    std::string uinputName = "Monidroid Input (" + modelName + ")";
+    // Init input
+    libevdev *dev = libevdev_new();
+    libevdev_set_name(dev, uinputName.c_str());
+    libevdev_enable_event_type(dev, EV_SYN);
+    libevdev_enable_event_type(dev, EV_REL);
+    libevdev_enable_event_code(dev, EV_REL, REL_X, NULL);
+    libevdev_enable_event_code(dev, EV_REL, REL_Y, NULL);
+    libevdev_enable_event_type(dev, EV_KEY);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_LEFT, NULL);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_MIDDLE, NULL);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_RIGHT, NULL);
+
+    libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &monitor->uinput);
+
+    libevdev_free(dev);
     return monitor;
 }
 
-MDStatus monitorRequestFrame(const Monitor &self) {
+FrameStatus monitorRequestFrame(const Monitor &self) {
     bool ready = evdi_request_update(self->handle, self->frameBufferInfo.id);
     if (ready) {
         evdi_grab_pixels(self->handle, self->rects.begin(), &self->rectsCount);
         if (self->rectsCount == 0) {
             // mode changed according to current implementation
-            return MDStatus::ModeChanged;
+            return FrameStatus::ModeChanged;
         }
         self->enabled = true;
     } else {
@@ -220,32 +238,38 @@ MDStatus monitorRequestFrame(const Monitor &self) {
         int result = poll(polls.begin(), polls.size(), MAX_FRAME_WAIT);
         if (result < 0) {
             Monidroid::TaggedLog(self->modelName, "Failed to request frame, poll() failed with errno {}", errno);
-            return MDStatus::Error;
+            return FrameStatus::Error;
         } else if (result == 0) {
             if (self->enabled) {
-                return MDStatus::NoUpdates;
+                return FrameStatus::NoUpdates;
             } else {
-                return MDStatus::MonitorOff;
+                return FrameStatus::MonitorOff;
             }
         } else if (result > 0) {
             evdi_handle_events(self->handle, &self->ctx);
             if (self->enabled) {
                 if (self->rectsCount == 0) {
                     // mode changed according to current implementation
-                    return MDStatus::ModeChanged;
+                    return FrameStatus::ModeChanged;
                 }
             } else {
-                return MDStatus::MonitorOff;
+                return FrameStatus::MonitorOff;
             }
         } else {
         }
     }
 
-    return MDStatus::FrameReady;
+    return FrameStatus::FrameReady;
 }
 
 MonitorMode monitorRequestMode(const Monitor &self, bool cached) {
     return self->current;
+}
+
+void monitorSendInput(const Monitor &self, int dx, int dy) {
+    libevdev_uinput_write_event(self->uinput, EV_REL, REL_X, dx);
+    libevdev_uinput_write_event(self->uinput, EV_REL, REL_Y, dy);
+    libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
 }
 
 void monitorMapCurrent(const Monitor &self, FrameMapInfo &mapInfo) {
@@ -266,12 +290,18 @@ void monitorUnmap(const Monitor &self) {
 }
 
 void monitorDisconnect(Monitor &self) {
+    // Disconnect monitor
     evdi_close(self->handle);
     std::string path = "/dev/dri/card";
     path += std::to_string(self->devIndex);
 
     if (remove(path.c_str()) != 0) {
         Monidroid::TaggedLog(ADAPTER_TAG, "Card {} removal failed with code {}, ignoring", path, errno);
+    }
+
+    // Destroy input
+    if (self->uinput) {
+        libevdev_uinput_destroy(self->uinput);
     }
 
     self.reset();
