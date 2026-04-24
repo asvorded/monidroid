@@ -1,12 +1,11 @@
 import { io } from "socket.io-client";
 
-import { protocol } from "monidroid-server/src/protocol";
 import {
   AllClientsResponse, ClientConnectedEvent,
   ClientDisconnectedEvent, Device, wsProtocol
-} from "monidroid-server/src/types/websocket";
+} from "../server/websocket";
 
-const socket = io(`http://localhost:${protocol.WS_PORT}`);
+const socket = io(`http://localhost:${wsProtocol.PORT}`);
 
 const devices: Map<string, Device> = new Map<string, Device>();
 
