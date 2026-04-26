@@ -1,9 +1,11 @@
 #pragma once
 
 namespace Monidroid {
+
     // New protocol
     inline namespace V2 {
         inline constexpr auto PROTOCOL_PORT        = 14770;
+        inline constexpr auto ADB_PORT             = 14767;
 
         inline constexpr auto PROTOCOL_WORD_LEN    = 5;
 
@@ -22,14 +24,14 @@ namespace Monidroid {
         };
 
         // ECHO
-        inline constexpr auto CL_ECHO_WORD         = "CECHO";
+        inline constexpr char CL_ECHO_WORD[PROTOCOL_WORD_LEN + 1]         = "CECHO";
 
-        inline constexpr auto SV_ECHO_WORD         = "SECHO";
+        inline constexpr char SV_ECHO_WORD[PROTOCOL_WORD_LEN + 1]         = "SECHO";
         
         // Client side
-        inline constexpr auto CL_WELCOME_WORD      = "CWLCM";
+        inline constexpr char CL_WELCOME_WORD[PROTOCOL_WORD_LEN + 1]      = "CWLCM";
 
-        inline constexpr auto CL_INPUT_WORD        = "CINPT";
+        inline constexpr char CL_INPUT_WORD[PROTOCOL_WORD_LEN + 1]        = "CINPT";
 
         enum class InputType : int {
             MouseMove    = 1,
@@ -42,27 +44,28 @@ namespace Monidroid {
         };
         
         // Server side        
-        inline constexpr auto SV_STREAM_WORD       = "SSTRM";
+        inline constexpr char SV_STREAM_WORD[PROTOCOL_WORD_LEN + 1]       = "SSTRM";
 
-        inline constexpr auto SV_FRAME_WORD        = "SFRME";
+        inline constexpr char SV_USB_WORD[PROTOCOL_WORD_LEN + 1]          = "SUSBI";
 
-        inline constexpr auto SV_ERROR_WORD        = "SERRC";
+        inline constexpr char SV_FRAME_WORD[PROTOCOL_WORD_LEN + 1]        = "SFRME";
+
+        inline constexpr char SV_ERROR_WORD[PROTOCOL_WORD_LEN + 1]        = "SERRC";
         
         // Extensions
-        inline constexpr auto EXTENSION_WORD       = "MDEXT";
+        inline constexpr char EXTENSION_WORD[PROTOCOL_WORD_LEN + 1]       = "MDEXT";
 
-        inline constexpr auto NO_EXTENSION_WORD    = "MDNOX";
+        inline constexpr char NO_EXTENSION_WORD[PROTOCOL_WORD_LEN + 1]    = "MDNOX";
     }
 
-    namespace Extensions {
-        // USB detection
-        inline constexpr auto CL_USB_ECHO_WORD     = "CEUSB";
+    inline constexpr auto ADB_IF_CLASS         = 0xFF;
+    inline constexpr auto ADB_IF_SUBCLASS      = 0x42;
+    inline constexpr auto ADB_IF_PROTOCOL      = 0x01;
 
-        inline constexpr auto SV_USB_ECHO_WORD     = "SEUSB";
-
+    namespace Ex {
         // Delay calculation
-        inline constexpr auto CL_CALC_DELAY_WORD   = "CPING";
+        inline constexpr char CL_CALC_DELAY_WORD[PROTOCOL_WORD_LEN + 1]   = "CPING";
 
-        inline constexpr auto SV_CALC_DELAY_WORD   = "SPING";
+        inline constexpr char SV_CALC_DELAY_WORD[PROTOCOL_WORD_LEN + 1]   = "SPING";
     }
 }
