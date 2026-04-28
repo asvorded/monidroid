@@ -10,11 +10,17 @@ Turn your mobile device into second monitor on any platform!
 
 ## Building
 
-Necessary dependencies:
+Common dependencies:
 - `pkg-config` (**Windows:** `winget install bloodrock.pkg-config-lite`)
-- `boost`: `Asio`, `Test`
+- `boost`: `Asio`, `Test`, `Process`, `Program options`
 - `libjpeg-turbo`
-- `gstreamer` (**Windows:** set `GSTREAMER_ROOT_X86_64` environment variable after installation)
-- `evdi`
+- `GStreamer`
+- `libusb`
 
-To build Windows driver, use Visual Studio 2022
+Linux specific dependencies:
+- `evdi`
+- `libevdev`
+
+When building on Windows, please set up `CMAKE_PREFIX_PATH` for some dependencies (like `boost`)
+
+To build Windows driver (**iddcx-driver**), use Visual Studio 2022
