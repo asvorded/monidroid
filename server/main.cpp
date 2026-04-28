@@ -1,6 +1,9 @@
 #include <iostream>
 #include <thread>
+#include <memory>
 #include <csignal>
+
+#include <boost/program_options.hpp>
 
 #include <gst/gst.h>
 
@@ -8,59 +11,82 @@
 
 #include "monidroid/logger.h"
 #include "echoserver.h"
+#include "usbserver.h"
 #include "server.h"
 #include "native.h"
 
-static void usage() {
+namespace po = boost::program_options;
+
+static void usage(const po::options_description &desc) {
     std::cout <<
 #if defined(__linux__)
-        "Monidroid Linux server version " MONIDROID_SERVICE_VERSION "\n"
-        "Options:\n"
-        "--help            Print help" "\n"
-        "--terminal        Start as a console application" "\n"
+        "Monidroid Linux server version " MD_SERVER_VERSION "\n"
 #elif defined(_WIN32)
-        "Monidroid Windows server version " MONIDROID_SERVICE_VERSION "\n"
-        "Options:\n"
-        "--help            Print help" "\n"
-        "--install         Install as a Windows service" "\n"
-        "--uninstall       Uninstall Windows service" "\n"
-        "--terminal        Start as a console application" "\n"
+        "Monidroid Windows server version " MD_SERVER_VERSION "\n"
 #endif
+        "Usage: " MD_SERVER_EXE_NAME " [options...]" "\n"
+        << desc << "\n"
     ;
+}
+
+static void version() {
+    std::cout << MD_SERVER_VERSION << "\n";
 }
 
 boost::asio::io_context context;
 
 int main(int argc, char *argv[]) try {
-    if (argc == 2) {
-		std::string command(argv[1]);
-		if (command == "--help") {
-            usage();
-            return 0;
-        } else if (command == "--terminal") {
-            Monidroid::DefaultLog("Starting as console applicaion...");
-		} else {
-			std::cout << "Unknown option. Use --help to get available options." << '\n';
-            return -1;
-		}
-	} else if (argc != 1) {
-        std::cout << "Invalid usage. Use --help to get more info." << '\n';
-        return -1;
+    po::options_description desc("Options");
+    desc.add_options()
+        ("version", "Print version")
+        ("help", "Print help")
+        ("terminal", "Start as a console application")
+        ("show-serials", "Show mobile devices' serial numbers")
+        ("force-usb", "Do not start server if USB server cannot be started")
+    ;
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    if (vm.contains("version")) {
+        version();
+        return 0;
+    } else if (vm.contains("help")) {
+        usage(desc);
+        return 0;
     }
+
+    if (vm.contains("terminal")) {
+        Monidroid::DefaultLog("Starting as console applicaion...");
+    }
+    bool hideSerials = !vm.contains("show-serials");
+    bool throwIfUsbFailed = vm.contains("force-usb");
 
     gst_init(&argc, &argv);
     guint major, minor, micro, nano;
     gst_version(&major, &minor, &micro, &nano);
 
-    Monidroid::DefaultLog("GStreamer version: {}.{}.{}.{}", major, minor, micro, nano);
-
-    // Video adapter health check
+    // Health checks
+    checkElevation();
     videoHealthCheck();
     
     EchoServer echoServer(context);
     echoServer.start();
     
     Server server(context);
+
+    std::unique_ptr<UsbServer> usbServer;
+    if (throwIfUsbFailed) {
+        usbServer.reset(new UsbServer(hideSerials));
+    } else {
+        try {
+            usbServer.reset(new UsbServer(hideSerials));
+        } catch (const std::runtime_error &e) {
+            Monidroid::DefaultLog("{}", e.what());
+            Monidroid::DefaultLog("USB server has failed to start, server will not support USB connections");
+        }
+    }
     
     std::signal(SIGINT, [](int signal) {
         Monidroid::DefaultLog("Stop requested, shutting down the server...");

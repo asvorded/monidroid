@@ -5,6 +5,10 @@ project(monidroid)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_compile_definitions(DEBUG)
+endif()
+
 add_subdirectory(common)
 
 add_subdirectory(server)

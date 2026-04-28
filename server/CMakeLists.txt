@@ -2,20 +2,24 @@ cmake_minimum_required(VERSION 3.20)
 
 cmake_policy(SET CMP0167 NEW)
 
-if(CMAKE_BUILD_TYPE STREQUAL Debug)
-    add_compile_definitions(DEBUG)
-endif()
 #
 # TARGET (default): server
 #
 set(SERVER_TARGET server)
+set(SERVER_VERSION 0.1.0)
 
 add_executable(${SERVER_TARGET})
 target_sources(${SERVER_TARGET} PRIVATE
     main.cpp
     echoserver.cpp
     server.cpp
+    usbserver.cpp
     client.cpp
+)
+
+target_compile_definitions(${SERVER_TARGET} PRIVATE
+    MD_SERVER_EXE_NAME="${SERVER_TARGET}"
+    MD_SERVER_VERSION="${SERVER_VERSION}"
 )
 
 # LibJPEG-Turbo
@@ -38,11 +42,16 @@ pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
     gstreamer-rtsp-server-1.0
 )
 
+# libusb
+pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
+    libusb-1.0
+)
+
 # Boost
 if(WIN32)
     list(APPEND CMAKE_PREFIX_PATH "C:\\Program Files\\boost_1_90_0\\lib64-msvc-14.3\\cmake")
 endif()
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED process program_options)
 
 target_include_directories(${SERVER_TARGET} PRIVATE ${Boost_INCLUDE_DIRS})
 
@@ -51,6 +60,9 @@ target_link_libraries(${SERVER_TARGET}
         monidroid-common
         libjpeg-turbo::turbojpeg
         PkgConfig::GStreamer
+        PkgConfig::libusb
+        Boost::process
+        Boost::program_options
 )
 
 if(LINUX)
@@ -62,6 +74,7 @@ if(LINUX)
     target_sources(monidroid-linux
         PRIVATE
             linux/evdi.cpp
+            linux/misc.cpp
         
         PUBLIC
             FILE_SET HEADERS
@@ -99,6 +112,7 @@ elseif(WIN32)
     target_sources(monidroid-win32
         PRIVATE
             win32/iddcx.cpp
+            win32/misc.cpp
 
         PUBLIC
             FILE_SET HEADERS

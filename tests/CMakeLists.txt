@@ -20,7 +20,7 @@ target_link_libraries(edid_tests
 )
 
 # USB tests
-add_executable(usb_tests usb.cpp)
+add_executable(usb_tests usb.cpp ../server/usbserver.cpp)
 
 pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
     libusb-1.0

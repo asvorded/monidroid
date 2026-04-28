@@ -58,9 +58,8 @@ namespace Monidroid {
         inline constexpr char NO_EXTENSION_WORD[PROTOCOL_WORD_LEN + 1]    = "MDNOX";
     }
 
-    inline constexpr auto ADB_IF_CLASS         = 0xFF;
-    inline constexpr auto ADB_IF_SUBCLASS      = 0x42;
-    inline constexpr auto ADB_IF_PROTOCOL      = 0x01;
+    inline constexpr unsigned int ADB_IF_CLASS         = 0xFF4201;
+    inline constexpr unsigned int ADB_MTP_IF_CLASS     = 0x060101;
 
     namespace Ex {
         // Delay calculation
