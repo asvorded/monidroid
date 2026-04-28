@@ -89,6 +89,9 @@ bool UsbServer::isAdbDevice(libusb_device *dev, int& errc) {
                     if (ifId == Monidroid::ADB_IF_CLASS || ifId == Monidroid::ADB_MTP_IF_CLASS)
                     {
                         result = true;
+                    } else if (alt.bInterfaceClass == 0xFFu) {
+                        Monidroid::TaggedLog(TAG, "Device with vendor-specific interface class detected, will try to start ADB server");
+                        result = true;
                     }
                 }
             }
