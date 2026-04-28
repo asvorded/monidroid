@@ -4,9 +4,9 @@
 #include "monidroid/logger.h"
 
 Server::Server(boost::asio::io_context &context)
-    : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::PROTOCOL_PORT))
+  : m_acceptor(context, ip::tcp::endpoint(ip::tcp::v4(), Monidroid::PROTOCOL_PORT)),
+    m_adapter(openAdapter())
 {
-    m_adapter = openAdapter();
     if (!m_adapter) {
         throw std::runtime_error("Unexpected graphics adapter inaccessibility detected during server initialization");
     }
@@ -24,17 +24,17 @@ Server::~Server() {
 
     //                                ( this thread |     client's thread     )
     // Make copy to prevent deadlocks (   t.join()  | std::guard_lock g(lock) );
-    std::set<std::shared_ptr<Client>> copy;
+    std::set<std::shared_ptr<ClientContext>> copy;
     {
         std::lock_guard g(lock);
-        copy = clients;
-        clients.clear();
+        copy = m_clients;
+        m_clients.clear();
     }
     if (!copy.empty()) {
         Monidroid::TaggedLog(TAG, "Some clients are still connected, forcing disconnect...");
         for (auto& c : copy) {
-            c->forceDisconnect();
-            std::thread t = c->detachThread();
+            c->client->forceDisconnect();
+            std::thread t = std::move(c->thread);
             if (t.joinable()) {
                 t.join();
             }
@@ -48,18 +48,20 @@ bool Server::running() const {
     return m_running;
 }
 
+auto Server::clients() -> ClientsSet {
+    std::lock_guard g(lock);
+    return m_clients;
+}
+
 void Server::serverMainAsync() {
     m_acceptor.async_accept([this](const boost::system::error_code &ec, ip::tcp::socket clientSocket) {
         if (!ec) {
-            auto client = std::make_shared<Client>(std::move(clientSocket));
-            {
-                std::lock_guard g(lock);
-                clients.insert(client);
-            }
+            auto ctx = std::make_shared<ClientContext>();
+            ctx->client = std::make_shared<Client>(std::move(clientSocket));
             
-            client->attachThread(std::thread([this, client]() {
-                communicationMain(client);
-            }));
+            ctx->thread = std::thread([this, ctx]() {
+                communicationMain(ctx);
+            });
 
             serverMainAsync();
         } else {
@@ -69,9 +71,15 @@ void Server::serverMainAsync() {
     });
 }
 
-void Server::communicationMain(std::shared_ptr<Client> client) {
+void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
     Monidroid::TaggedLog(TAG, "New client connected");
 
+    {
+        std::lock_guard g(lock);
+        m_clients.insert(ctx);
+    }
+
+    auto client = ctx->client;
     try {
         bool result = false;
 
@@ -105,9 +113,9 @@ void Server::communicationMain(std::shared_ptr<Client> client) {
 
     {
         std::lock_guard g(lock);
-        if (clients.erase(client)) {
+        if (m_clients.erase(ctx)) {
             // No lock(), because we are in detachThread() thread
-            client->detachThread().detach();
+            ctx->thread.detach();
         }
     }
 }

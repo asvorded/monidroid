@@ -38,8 +38,6 @@ private:
 
     Monitor m_monitor;
 
-    std::thread m_communicationThread;
-
     void sendFullFrame(const FrameMapInfo& info);
     void sendMonitorOff();
 
@@ -53,8 +51,6 @@ public:
 
     const std::string& modelName() const;
     ClientState state() const;
-    void attachThread(std::thread&& t);
-    std::thread detachThread();
 
     bool identifyClient();
     bool connectMonitor(const Adapter& adapter);

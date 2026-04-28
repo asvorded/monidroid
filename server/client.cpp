@@ -32,15 +32,6 @@ ClientState Client::state() const
     return m_state;
 }
 
-void Client::attachThread(std::thread &&t) {
-    m_communicationThread = std::move(t);
-}
-
-std::thread Client::detachThread() {
-    std::thread t = std::move(m_communicationThread);
-    return t;
-}
-
 bool Client::identifyClient() {
     enum class WelcomeStates { Welcome, Model, Modes };
 
