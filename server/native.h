@@ -39,6 +39,7 @@ struct FrameMapInfo {
 	unsigned int stride;
 };
 
+void checkElevation() noexcept(false);
 void videoHealthCheck() noexcept(false);
 
 Adapter openAdapter();
