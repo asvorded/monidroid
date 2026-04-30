@@ -5,7 +5,7 @@ cmake_policy(SET CMP0167 NEW)
 #
 # TARGET (default): server
 #
-set(SERVER_TARGET server)
+set(SERVER_TARGET monidroid-server)
 set(SERVER_VERSION 0.1.0)
 
 add_executable(${SERVER_TARGET})
