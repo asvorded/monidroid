@@ -30,6 +30,7 @@ namespace Monidroid {
         
         // Client side
         inline constexpr char CL_WELCOME_WORD[PROTOCOL_WORD_LEN + 1]      = "CWLCM";
+        inline constexpr char CL_USB_WELCOME_WORD[PROTOCOL_WORD_LEN + 1]  = "CUSBW";
 
         inline constexpr char CL_INPUT_WORD[PROTOCOL_WORD_LEN + 1]        = "CINPT";
 
@@ -45,8 +46,6 @@ namespace Monidroid {
         
         // Server side        
         inline constexpr char SV_STREAM_WORD[PROTOCOL_WORD_LEN + 1]       = "SSTRM";
-
-        inline constexpr char SV_USB_WORD[PROTOCOL_WORD_LEN + 1]          = "SUSBI";
 
         inline constexpr char SV_FRAME_WORD[PROTOCOL_WORD_LEN + 1]        = "SFRME";
 

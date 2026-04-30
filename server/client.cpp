@@ -32,6 +32,10 @@ ClientState Client::state() const
     return m_state;
 }
 
+bool Client::isUsb() const {
+    return m_isUsb;
+}
+
 bool Client::identifyClient() {
     enum class WelcomeStates { Welcome, Model, Modes };
 
@@ -39,12 +43,10 @@ bool Client::identifyClient() {
     int bytesNeeded = 0;
     WelcomeStates state = WelcomeStates::Welcome;
 
-    boost::system::error_code ec;
-
-    std::string_view welcomeWord(Monidroid::CL_WELCOME_WORD);
-    bytesNeeded = welcomeWord.size() + sizeof(int);
+    bytesNeeded = Monidroid::PROTOCOL_WORD_LEN + sizeof(int);
     
     while (bytesNeeded > 0) {
+        boost::system::error_code ec;
         size_t bytesReceived = m_socket.read_some(boost::asio::buffer(recvBuf, bytesNeeded), ec);
         if (ec) {
             Monidroid::DefaultLog("Socket error \"{}\", identification failed", ec.message());
@@ -56,13 +58,18 @@ bool Client::identifyClient() {
         switch (state) {
         case WelcomeStates::Welcome:
         {
-            std::string_view word(m_netBuffer.data(), welcomeWord.size());
-            if (word != welcomeWord) {
-                Monidroid::DefaultLog("WELCOME word mismatch, unknown Monidroid Client");
+            std::string_view word(m_netBuffer.data(), Monidroid::PROTOCOL_WORD_LEN);
+
+            if (word == Monidroid::CL_WELCOME_WORD) {
+                m_isUsb = false;
+            } else if (word == Monidroid::CL_USB_WELCOME_WORD) {
+                m_isUsb = true;
+            } else {
+                Monidroid::DefaultLog("\"Welcome\" word mismatch, unknown client");
                 return false;
             }
 
-            int nameLength = *(reinterpret_cast<int*>(m_netBuffer.data() + welcomeWord.size()));
+            int nameLength = *(reinterpret_cast<int*>(m_netBuffer.data() + Monidroid::PROTOCOL_WORD_LEN));
             
             m_netBuffer.erase(m_netBuffer.begin(), m_netBuffer.begin() + bytesNeeded);
             bytesNeeded = nameLength;

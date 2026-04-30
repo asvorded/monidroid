@@ -35,6 +35,7 @@ private:
 
     MonitorMode m_preffered;
     std::string m_modelName;
+    bool m_isUsb;
 
     Monitor m_monitor;
 
@@ -51,6 +52,7 @@ public:
 
     const std::string& modelName() const;
     ClientState state() const;
+    bool isUsb() const;
 
     bool identifyClient();
     bool connectMonitor(const Adapter& adapter);
