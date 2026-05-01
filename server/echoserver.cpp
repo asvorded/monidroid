@@ -11,32 +11,22 @@
 #include "monidroid/logger.h"
 
 EchoServer::EchoServer(io_context &context) 
-    : m_socket(context),
-      m_echoMessage(makeEchoMessage()),
-      m_recvbuf(Monidroid::CL_ECHO_WORD),
-      m_started(false) { }
-
-EchoServer::~EchoServer() {
-    stop();
-}
-
-void EchoServer::start() {
-    if (m_started) return;
-
+  : m_socket(context),
+    m_echoMessage(makeEchoMessage()),
+    m_recvbuf(Monidroid::CL_ECHO_WORD),
+    m_started(false)
+{
     auto executor = m_socket.get_executor();
     auto endpoint = ip::udp::endpoint(ip::udp::v4(), Monidroid::PROTOCOL_PORT);
     m_socket = ip::udp::socket(executor, endpoint);
-
-    // m_echoThread = std::thread([this]() { echoMain(); });
-    echoMainAsync();
-
+    
     m_started = true;
-    Monidroid::TaggedLog("ECHO Server", "Echo server started");
+    Monidroid::TaggedLog(TAG, "Echo server started");
+    
+    echoMainAsync();
 }
 
-void EchoServer::stop() {
-    if (!m_started) return;
-    
+EchoServer::~EchoServer() {
     m_socket.close();
     
     if (m_echoThread.joinable()) {
@@ -44,7 +34,7 @@ void EchoServer::stop() {
     }
     
     m_started = false;
-    Monidroid::TaggedLog("ECHO Server", "Echo server stopped");
+    Monidroid::TaggedLog(TAG, "Echo server stopped");
 }
 
 void EchoServer::echoMainAsync() {

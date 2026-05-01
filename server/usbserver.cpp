@@ -32,15 +32,18 @@ UsbServer::UsbServer(bool hideSerials)
     );
 
     m_running = true;
-    m_thread = std::thread([this]() { usbMain(); });
+    m_thread = std::thread(std::bind(&UsbServer::usbMain, this));
+    Monidroid::TaggedLog(TAG, "USB server started");
 }
 
 UsbServer::~UsbServer() {
     m_running = false;
     m_thread.join();
-
+    
     libusb_hotplug_deregister_callback(NULL, m_callback);
     libusb_exit(NULL);
+    
+    Monidroid::TaggedLog(TAG, "USB server stopped");
 }
 
 bool UsbServer::running() const {

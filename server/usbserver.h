@@ -22,7 +22,7 @@ struct UsbClientContext {
 class UsbServer {
     using ClientsSet = std::set<std::shared_ptr<UsbClientContext>>;
 private:
-    static constexpr auto TAG = "USB server";
+    static constexpr auto TAG = "USB";
     static constexpr auto ADB_PATH = "adb";
     static constexpr timeval POLL_INTERVAL { .tv_sec = 1 };
 

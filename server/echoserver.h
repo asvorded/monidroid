@@ -9,6 +9,8 @@
 using namespace boost::asio;
 
 class EchoServer {
+    static constexpr auto TAG = "ECHO";
+
 private:
     ip::udp::socket m_socket;
     bool m_started;
@@ -24,7 +26,4 @@ private:
 public:
     EchoServer(io_context &context);
     ~EchoServer();
-
-    void start();
-    void stop();
 };
