@@ -9,8 +9,10 @@ x64/
 [Rr]elease/
 *.user
 
-# VS Code workspace settings
+# IDE workspace settings
 .vscode/
+.idea/
+.cache/
 
 # JavaScript out files
 dist/
