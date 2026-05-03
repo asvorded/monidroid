@@ -35,7 +35,7 @@ private:
 
     MonitorMode m_preffered;
     std::string m_modelName;
-    bool m_isUsb;
+    bool m_isUsb = false;
 
     Monitor m_monitor;
 

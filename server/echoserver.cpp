@@ -10,7 +10,7 @@
 #include "monidroid/protocol.h"
 #include "monidroid/logger.h"
 
-EchoServer::EchoServer(io_context &context) 
+EchoServer::EchoServer(asio::io_context &context) 
   : m_socket(context),
     m_echoMessage(makeEchoMessage()),
     m_recvbuf(Monidroid::CL_ECHO_WORD),
@@ -37,23 +37,29 @@ EchoServer::~EchoServer() {
     Monidroid::TaggedLog(TAG, "Echo server stopped");
 }
 
+bool EchoServer::running() const {
+    return m_started;
+}
+
 void EchoServer::echoMainAsync() {
     m_socket.async_receive_from(boost::asio::buffer(m_recvbuf), m_from,
-        [this](const boost::system::error_code& error, std::size_t bytesReceived) 
-        {
-            if (!error) {
+        [this](const boost::system::error_code& ec, std::size_t bytesReceived) {
+            if (!ec) {
                 if (bytesReceived == m_recvbuf.size() && m_recvbuf == Monidroid::CL_ECHO_WORD) {
                     boost::system::error_code ec;
                     size_t bytesSent = m_socket.send_to(boost::asio::buffer(m_echoMessage), m_from, 0, ec);
                     if (bytesSent == 0 || ec) {
-                        Monidroid::TaggedLog("ECHO Server", "sendto() failed, error: {}\n", ec.message());
+                        Monidroid::TaggedLog(TAG, "sendto() failed, error: {}", ec.message());
                         return;
                     }
                 }
                 
                 echoMainAsync();
             } else {
-                Monidroid::TaggedLog("ECHO Server", "recvfrom() failed, error: {}\n", error.message());
+                if (ec != asio::error::operation_aborted) {
+                    Monidroid::TaggedLog(TAG, "recvfrom() failed, error: {}", ec.message());
+                }
+                m_started = false;
             }
         }
     );
@@ -61,7 +67,7 @@ void EchoServer::echoMainAsync() {
 
 std::vector<char> EchoServer::makeEchoMessage() {
     std::string_view svWord(Monidroid::SV_ECHO_WORD);
-    std::string svHostname(boost::asio::ip::host_name());
+    std::string svHostname(asio::ip::host_name());
     int length = svHostname.size();
 
     std::vector<char> out;

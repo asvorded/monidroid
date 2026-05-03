@@ -37,8 +37,6 @@ endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
     gstreamer-1.0
-    gstreamer-audio-1.0
-    gstreamer-pbutils-1.0
     gstreamer-rtsp-server-1.0
 )
 
@@ -55,6 +53,12 @@ find_package(Boost REQUIRED process program_options)
 
 target_include_directories(${SERVER_TARGET} PRIVATE ${Boost_INCLUDE_DIRS})
 
+# uWebSockets
+find_package(uWebSockets PATHS ${CMAKE_CURRENT_SOURCE_DIR})
+
+# JSON
+find_package(nlohmann_json REQUIRED)
+
 target_link_libraries(${SERVER_TARGET}
     PRIVATE
         monidroid-common
@@ -63,6 +67,8 @@ target_link_libraries(${SERVER_TARGET}
         PkgConfig::libusb
         Boost::process
         Boost::program_options
+        uWebSockets
+        nlohmann_json::nlohmann_json
 )
 
 if(LINUX)
@@ -75,7 +81,7 @@ if(LINUX)
         PRIVATE
             linux/evdi.cpp
             linux/misc.cpp
-        
+
         PUBLIC
             FILE_SET HEADERS
             FILES

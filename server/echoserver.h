@@ -6,7 +6,8 @@
 
 #include <boost/asio.hpp>
 
-using namespace boost::asio;
+namespace asio = boost::asio;
+namespace ip = boost::asio::ip;
 
 class EchoServer {
     static constexpr auto TAG = "ECHO";
@@ -24,6 +25,8 @@ private:
 
     std::vector<char> makeEchoMessage();
 public:
-    EchoServer(io_context &context);
+    EchoServer(asio::io_context &context);
     ~EchoServer();
+
+    bool running() const;
 };

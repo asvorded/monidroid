@@ -4,6 +4,8 @@
 #include <thread>
 #include <set>
 #include <mutex>
+#include <chrono>
+#include <functional>
 
 #include "client.h"
 #include "native.h"
@@ -13,8 +15,21 @@
 using namespace boost::asio;
 
 struct ClientContext {
+    int id;
+    ip::tcp::endpoint address;
+    std::chrono::system_clock::time_point connectedAt;
     std::shared_ptr<Client> client;
     std::thread thread;
+};
+
+struct ServerInfo {
+    std::string hostname;
+    std::vector<std::string> addrs;
+};
+
+struct Notifier {
+    std::function<void(std::shared_ptr<ClientContext>)> onClientConnected;
+    std::function<void(std::shared_ptr<ClientContext>)> onClientDisconnected;
 };
 
 class Server {
@@ -23,11 +38,15 @@ class Server {
 private:
     static constexpr auto TAG = "Server";
     
+    ip::tcp::resolver m_resolver;
     ip::tcp::acceptor m_acceptor;
     bool m_running = false;
 
     ClientsSet m_clients;
+    static int g_currentId;
     std::mutex lock;
+
+    Notifier m_notifier;
 
     Adapter m_adapter;
 
@@ -36,9 +55,11 @@ private:
     void communicationMain(std::shared_ptr<ClientContext> ctx);
 
 public:
-    Server(boost::asio::io_context &context);
+    Server(io_context &context, Notifier notifier);
     ~Server();
 
     bool running() const;
     ClientsSet clients();
+
+    ServerInfo serverInfo();
 };
