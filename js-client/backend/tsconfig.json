@@ -3,5 +3,6 @@
     "composite": true,
     "outDir": "../dist/backend",
     "module": "commonjs",
+    "esModuleInterop": true
   }
 }

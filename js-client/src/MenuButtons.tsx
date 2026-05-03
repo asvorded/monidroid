@@ -1,4 +1,4 @@
-import {CircleQuestion, LogoAndroid, LogoLinux} from '@gravity-ui/icons';
+import {CircleQuestion, LogoAndroid, LogoLinux, Power} from '@gravity-ui/icons';
 import { Button, ButtonButtonProps, Icon, Text } from "@gravity-ui/uikit";
 import { Device } from './server/websocket';
 import { NavLink, NavLinkProps } from 'react-router';
@@ -21,18 +21,14 @@ export const MenuButton = ({ icon, text, className, to }: {
   </NavLink>
 );
 
-export const ClientButton = ({ device }: { device: Device }) => (
-  <NavLink to={`/devices/${device.id}`}>
-    {({ isActive }) => (
-      <Button width="max" view="flat" pin="circle-circle" size="l"
-        selected={isActive}
-        style={{
-          justifyContent: 'flex-start',
-        }}
-      >
-        <Icon data={LogoAndroid} />
-        <Text>{device.name}</Text>
-      </Button>
-    )}
-  </NavLink>
+export const ShutdownButton = ({className} : ButtonButtonProps) => (
+    <Button width="max" view="outlined-danger" pin="circle-circle" size="l"
+      className={className}
+      style={{
+        justifyContent: 'flex-start',
+      }}
+    >
+      <Icon data={Power} />
+      <Text>Shutdown</Text>
+    </Button>
 );

@@ -1,8 +1,9 @@
 export const wsProtocol = {
   PORT: 14768,
-  ALL: 'clients/all',
+  ALL_CLIENTS: 'clients/all',
   CLIENT_CONNECTED: 'clients/new',
   CLIENT_DISCONNECTED: 'clients/disconnected',
+  DISCONNECT_CLIENT: 'clients/disconnect',
   SERVER_STATE: 'config/serverState',
   SERVER_CONFIG: 'config/all',
   SHUTDOWN: 'config/shutdown',

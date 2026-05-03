@@ -5,25 +5,41 @@ import {
   ClientDisconnectedEvent, Device, ServerInfo, wsProtocol
 } from "../server/websocket";
 
-const URL = `http://localhost:${wsProtocol.PORT}`;
+const URL = `http://localhost:${wsProtocol.PORT}/`;
 
 const socket = io(URL);
 
 const devices: Map<string, Device> = new Map<string, Device>();
 
+const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
+    id: 'dev_' + i,
+    connectionType: i % 2 == 0 ? 'wifi' : 'usb',
+    address: '192.168.1.' + i,
+    name: 'azaa ' + i,
+    connectedAt: Date.now()
+  })
+);
+
 async function getServerInfo(): Promise<ServerInfo> {
-  let res = await fetch(URL + wsProtocol.SERVER_CONFIG, {
-
-  });
-
-  return {};
+  return {
+    version: "0.1.0",
+    enabled: true,
+    hostname: "mypc",
+    addresses: [
+      "1.1.1.1",
+      "2.2.2.2"
+    ]
+  }
+  return await socket.emitWithAck(wsProtocol.SERVER_CONFIG) as ServerInfo;
 }
 
 function getAllClients(): Promise<Device[]> {
   devices.clear();
+
+  return Promise.resolve(testDevices);
   
   return new Promise((resolve, reject) => {
-    socket.emit(wsProtocol.ALL, (response: AllClientsResponse) => {
+    socket.emit(wsProtocol.ALL_CLIENTS, (response: AllClientsResponse) => {
       if (!response.error) {
         for (const c of response.clients) {
           devices.set(c.id, c);
@@ -34,6 +50,11 @@ function getAllClients(): Promise<Device[]> {
       }
     });
   });
+}
+
+function getClient(id: string): Device | undefined {
+  return testDevices.find(e => e.id == id);
+  return devices.get(id);
 }
 
 function registerOnClientConnected(
@@ -76,8 +97,19 @@ function unregisterAll() {
   }
 }
 
+function setServerState(enable: boolean) {
+  socket.emit(wsProtocol.SERVER_STATE, { enable: enable });
+}
+
+function shutdown() {
+  socket.emit(wsProtocol.SHUTDOWN);
+  // TODO: close window and stop process
+}
+
 const service = {
+  getServerInfo,
   getAllClients,
+  getClient,
   registerOnClientConnected,
   registerOnClientDisconnected,
   unregisterAll,
