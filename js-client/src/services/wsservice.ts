@@ -2,12 +2,22 @@ import { io } from "socket.io-client";
 
 import {
   AllClientsResponse, ClientConnectedEvent,
-  ClientDisconnectedEvent, Device, wsProtocol
+  ClientDisconnectedEvent, Device, ServerInfo, wsProtocol
 } from "../server/websocket";
 
 const socket = io(`http://localhost:${wsProtocol.PORT}`);
 
+const URL = `http://localhost:${wsProtocol.PORT}`;
+
 const devices: Map<string, Device> = new Map<string, Device>();
+
+async function getServerInfo(): Promise<ServerInfo> {
+  let res = await fetch(URL + wsProtocol.SERVER_CONFIG, {
+
+  });
+
+  return {};
+}
 
 function getAllClients(): Promise<Device[]> {
   devices.clear();

@@ -5,8 +5,12 @@ export const wsProtocol = {
   CLIENT_DISCONNECTED: 'clients/disconnected',
   SERVER_STATE: 'config/serverState',
   SERVER_CONFIG: 'config/all',
-  SHUTDOWN: 'confog/shutdown',
+  SHUTDOWN: 'config/shutdown',
 } as const;
+
+export type ServerInfo = {
+  
+};
 
 type ConnectionType = "wifi" | "usb";
 

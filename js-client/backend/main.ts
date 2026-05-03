@@ -1,8 +1,14 @@
 import { app, BrowserWindow, ipcMain, Notification } from "electron";
 
 function createWindow() {
-  const window = new BrowserWindow({});
-  window.loadURL('http://localhost:14764');
+  const window = new BrowserWindow({
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      height: 32,
+    },
+    hasShadow: true
+  });
+  window.loadURL('http://localhost:14769');
 }
 
 app.whenReady().then(() => {

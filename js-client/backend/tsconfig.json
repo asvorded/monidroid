@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "rootDir": ".",
+    "composite": true,
     "outDir": "../dist/backend",
-
     "module": "commonjs",
-  },
+  }
 }

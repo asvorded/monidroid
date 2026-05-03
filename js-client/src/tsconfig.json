@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "../dist/frontend",
+    "jsx": "react-jsx",
+    "module": "nodenext",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+  },
+  "exclude": [
+    "vite.config.ts"
+  ]
+}

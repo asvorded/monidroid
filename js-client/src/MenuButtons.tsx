@@ -1,6 +1,6 @@
 import {CircleQuestion, LogoAndroid, LogoLinux} from '@gravity-ui/icons';
 import { Button, ButtonButtonProps, Icon, Text } from "@gravity-ui/uikit";
-import { Device } from 'monidroid-server/src/types/websocket';
+import { Device } from './server/websocket';
 import { NavLink, NavLinkProps } from 'react-router';
 
 export const MenuButton = ({ icon, text, className, to }: {
@@ -30,13 +30,7 @@ export const ClientButton = ({ device }: { device: Device }) => (
           justifyContent: 'flex-start',
         }}
       >
-        {device.os == 'android' ? (
-          <Icon data={LogoAndroid} />
-        ) : device.os == 'linux' ? (
-          <Icon data={LogoLinux} />
-        ) : (
-          <Icon data={CircleQuestion} />
-        )}
+        <Icon data={LogoAndroid} />
         <Text>{device.name}</Text>
       </Button>
     )}

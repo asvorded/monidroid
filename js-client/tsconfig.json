@@ -1,9 +1,6 @@
 {
-  "compilerOptions": {
-    "jsx": "react-jsx",
-
-    "module": "nodenext",
-
-    "esModuleInterop": true,
-  },
+  "files": [],
+  "references": [
+    { "path": "./backend" }
+  ]
 }

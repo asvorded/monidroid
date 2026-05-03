@@ -5,15 +5,17 @@ import service from "./services/wsservice";
 import { Divider, Text } from "@gravity-ui/uikit";
 import { House, Gear, LogoAndroid } from '@gravity-ui/icons';
 import { MenuButton } from "./MenuButtons";
-import { Device } from "monidroid-server/src/types/websocket";
+import { Device } from "./server/websocket";
 import { Outlet } from "react-router";
 
 const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
     id: 'dev_' + i,
-    os: 'android',
-    address: '123',
-    name: 'azaa'
-  } as Device));
+    connectionType: i % 2 == 0 ? 'wifi' : 'usb',
+    address: '192.168.1.' + i,
+    name: 'azaa',
+    connectedAt: Date.now()
+  })
+);
 
 const App = () => {
   const [ clients, setClients ] = useState<Device[]>(testDevices);
@@ -37,7 +39,7 @@ const App = () => {
   }, []);
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-dvh pt-8">
       <main className="flex relative flex-col flex-1 min-w-56 p-3">
         <header className="mb-3">
           <Text variant="display-2" className="block">Monidroid</Text>
