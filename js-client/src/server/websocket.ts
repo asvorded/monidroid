@@ -9,7 +9,10 @@ export const wsProtocol = {
 } as const;
 
 export type ServerInfo = {
-  
+  version: string,
+  enabled: boolean,
+  hostname: string,
+  addresses: string[],
 };
 
 type ConnectionType = "wifi" | "usb";

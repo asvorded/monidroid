@@ -5,9 +5,9 @@ import {
   ClientDisconnectedEvent, Device, ServerInfo, wsProtocol
 } from "../server/websocket";
 
-const socket = io(`http://localhost:${wsProtocol.PORT}`);
-
 const URL = `http://localhost:${wsProtocol.PORT}`;
+
+const socket = io(URL);
 
 const devices: Map<string, Device> = new Map<string, Device>();
 

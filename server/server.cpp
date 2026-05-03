@@ -68,7 +68,12 @@ ServerInfo Server::serverInfo() {
         }
     }
 
-    return { .hostname = hostname, .addrs = addrs };
+    return {
+        .version = MD_SERVER_VERSION,
+        .enabled = m_running,
+        .hostname = hostname,
+        .addrs = addrs
+    };
 }
 
 void Server::serverMainAsync() {

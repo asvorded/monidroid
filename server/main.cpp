@@ -147,8 +147,8 @@ void setupControl(uWS::App *app) {
         if (g_server) {
             ServerInfo info = g_server->serverInfo();
             obj = {
-                { "version", MD_SERVER_VERSION },
-                { "enabled", g_server->running() },
+                { "version", info.version },
+                { "enabled", info.enabled },
                 { "computerName", info.hostname },
                 { "addresses", info.addrs }
             };
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) try {
         },
         .onClientDisconnected = [app = g_app.get()](auto ctx) {
             g_loop->defer([app, ctx]() {
-                json obj = makeMessage(Monidroid::Control::DISCONNECTED_EVENT, "id", ctx->id);
+                json obj = makeMessage(Monidroid::Control::DISCONNECTED_EVENT, "id", std::to_string(ctx->id));
                 app->publish("main", obj.dump(), uWS::OpCode::TEXT);
             });
         }

@@ -23,6 +23,8 @@ struct ClientContext {
 };
 
 struct ServerInfo {
+    std::string version;
+    bool enabled;
     std::string hostname;
     std::vector<std::string> addrs;
 };
