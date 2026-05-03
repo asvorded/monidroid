@@ -177,7 +177,7 @@ Monitor adapterConnectMonitor(const Adapter &self, const std::string &modelName,
     int devNumber = self->lastNumber + 1;
     while (evdi_check_device(devNumber) != AVAILABLE && devNumber < DEV_NO_THRESHOLD) devNumber++;
     if (devNumber == DEV_NO_THRESHOLD) {
-        throw new std::runtime_error("[BUG] Device numbers issued inconsistently");
+        throw std::runtime_error("[BUG] Device numbers issued inconsistently");
     }
 
     // Prepare EDID
