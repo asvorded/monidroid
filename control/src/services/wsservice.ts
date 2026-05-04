@@ -5,7 +5,7 @@ import {
   ServerInfo, ServerState, ServerStateOptions, WS_PORT, wsProtocol, ServerResponse,
   ServerRequest,
   ClientMessage,
-} from "../server/websocket";
+} from "./wsservice.types";
 
 const WS_URL = `ws://localhost:${WS_PORT}/`;
 const HTTP_URL = `http://localhost:${WS_PORT}/`;

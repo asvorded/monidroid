@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import AndroidLogo from "../../static/android.svg?react";
 import { useLoaderData } from "react-router";
-import { Device } from "../server/websocket";
+import { Device } from "../services/wsservice.types";
 
 function formatTime (ms: number) {
   const totalSeconds = Math.floor(ms / 1000);

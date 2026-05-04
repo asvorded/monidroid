@@ -5,7 +5,7 @@ import service from "./services/wsservice";
 import { Divider, Text, Icon } from "@gravity-ui/uikit";
 import { House, Gear, LogoAndroid, PlugConnection } from '@gravity-ui/icons';
 import { MenuButton, ShutdownButton } from "./MenuButtons";
-import { Device } from "./server/websocket";
+import { Device } from "./services/wsservice.types";
 import { Outlet } from "react-router";
 
 const App = () => {

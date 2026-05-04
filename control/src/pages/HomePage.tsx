@@ -1,6 +1,6 @@
 import { Card, Switch, Text } from "@gravity-ui/uikit";
 import { useLoaderData } from "react-router";
-import { ServerInfo } from "../server/websocket";
+import { ServerInfo } from "../services/wsservice.types";
 
 const HomePage = () => {
   const info = useLoaderData<ServerInfo>();

@@ -1,6 +1,6 @@
 import {CircleQuestion, LogoAndroid, LogoLinux, Power} from '@gravity-ui/icons';
 import { Button, ButtonButtonProps, Icon, Text } from "@gravity-ui/uikit";
-import { Device } from './server/websocket';
+import { Device } from './services/wsservice.types';
 import { NavLink, NavLinkProps } from 'react-router';
 
 export const MenuButton = ({ icon, text, className, to }: {
