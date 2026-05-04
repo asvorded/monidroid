@@ -9,12 +9,20 @@ import { Device } from "./services/wsservice.types";
 import { Outlet } from "react-router";
 
 const App = () => {
+  const [ connected, setConnected ] = useState(true);
+
+  useEffect(() => {
+    service.onConnected = () => {
+      setConnected(true);
+    }
+    service.onConnectionLost = () => {      
+      setConnected(false)
+    }
+  }, []);
   
   return (
     <>
-      {false ? (
-        <ErrorBanner/>
-      ) : null}
+      {!connected ? <ErrorBanner/> : null}
       <BaseApp />
     </>
   )
