@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import service from "./services/wsservice";
 
@@ -39,21 +39,26 @@ const BaseApp = () => {
   const [ clients, setClients ] = useState<Device[]>([]);
 
   useEffect(() => {
-    service.getAllClients().then(result => setClients(result));
-
-    service.registerOnClientConnected((client, alreadyPresent) => {
+    service.onClientConnected = (client, alreadyPresent) => {
       if (!alreadyPresent) {
         setClients([...clients, client]);
       }
-    });
+    };
 
-    service.registerOnClientDisconnected((id, alreadyRemoved) => {
+    service.onClientDisconnected = (id, alreadyRemoved) => {
       if (!alreadyRemoved) {
         setClients(clients.filter(c => c.id != id));
       }
-    });
+    };
 
-    return () => { service.unregisterAll(); };
+    return () => {
+      service.onClientConnected = () => {};
+      service.onClientDisconnected = () => {};
+    };
+  }, []);
+
+  useEffect(() => {
+    service.getServerInfo
   }, []);
 
   return (

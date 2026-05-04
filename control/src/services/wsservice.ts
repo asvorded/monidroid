@@ -1,15 +1,92 @@
-import { io } from "socket.io-client";
+import ReconnectingWebSocket from "reconnecting-websocket";
 
 import {
-  AllClientsResponse, ClientConnectedEvent,
-  ClientDisconnectedEvent, Device, ServerInfo, wsProtocol
+  ServerEvent, Device, MessageHandlers, ProtocolMessages, UUID,
+  ServerInfo, ServerState, ServerStateOptions, WS_PORT, wsProtocol, ServerMessage,
+  ServerRequest,
+  ClientMessage,
 } from "../server/websocket";
 
-const URL = `http://localhost:${wsProtocol.PORT}/`;
+const WS_URL = `ws://localhost:${WS_PORT}/`;
+const HTTP_URL = `http://localhost:${WS_PORT}/`;
 
-const socket = io(URL);
+type PendingRequest = {
+  resolve: (value: any) => void;
+  reject: (reason: any) => void;
+};
+
+const rws = new ReconnectingWebSocket(WS_URL);
+
+const pendingRequests = new Map<UUID, PendingRequest>();
 
 const devices: Map<string, Device> = new Map<string, Device>();
+
+let onConnectionLost = () => {};
+let onConnected = () => {};
+let onClientConnected = (client: Device, alreadyPresent: boolean) => {};
+let onClientDisconnected = (id: string, alreadyRemoved: boolean) => {};
+
+const handlers: MessageHandlers = {
+  [wsProtocol.CLIENT_CONNECTED]: ({ client }) => {
+    const present = devices.has(client.id);
+    devices.set(client.id, client);
+    onClientConnected(client, present);
+  },
+
+  [wsProtocol.CLIENT_DISCONNECTED]: ({ id }) => {
+    const removed = !devices.has(id);
+    devices.delete(id);
+    onClientDisconnected(id, removed);
+  }
+};
+
+rws.onopen = (e) => {
+  onConnected();
+};
+
+rws.onclose = (e) => {
+  pendingRequests.forEach((req, uuid) => {
+    req.reject(new Error("Connection lost"));
+  })
+  pendingRequests.clear();
+
+  onConnectionLost();
+}
+
+rws.onmessage = (e) => {
+  const msg: ServerMessage = JSON.parse(e.data);
+
+  if ('requestId' in msg) {
+    const { requestId, error, data } = msg;
+
+    const pending = pendingRequests.get(requestId);
+    if (pending) {
+      pendingRequests.delete(requestId);
+      
+      if (error) pending.reject(new Error(error));
+      else pending.resolve(data);
+    }
+  } else { 
+    const h = handlers[msg.message];
+    if (h) {
+      (h as any)(msg);
+    }
+  }
+}
+
+async function request(message: ProtocolMessages, obj?: any) : Promise<any> {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID();
+
+    pendingRequests.set(requestId, { resolve, reject });
+
+    rws.send(JSON.stringify({
+      message,
+      requestId,
+      data: obj
+    } as ServerRequest))
+  });
+}
 
 const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
     id: 'dev_' + i,
@@ -21,88 +98,36 @@ const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
 );
 
 async function getServerInfo(): Promise<ServerInfo> {
-  return {
-    version: "0.1.0",
-    enabled: true,
-    hostname: "mypc",
-    addresses: [
-      "1.1.1.1",
-      "2.2.2.2"
-    ]
-  }
-  return await socket.emitWithAck(wsProtocol.SERVER_CONFIG) as ServerInfo;
+  // return {
+  //   version: "0.1.0", enabled: true, hostname: "mypc",
+  //   addresses: [ "1.1.1.1", "2.2.2.2" ]
+  // }
+
+  return await request(wsProtocol.SERVER_CONFIG);
 }
 
-function getAllClients(): Promise<Device[]> {
+async function getAllClients(): Promise<Device[]> {
   devices.clear();
 
-  return Promise.resolve(testDevices);
+  // return Promise.resolve(testDevices);
   
-  return new Promise((resolve, reject) => {
-    socket.emit(wsProtocol.ALL_CLIENTS, (response: AllClientsResponse) => {
-      if (!response.error) {
-        for (const c of response.clients) {
-          devices.set(c.id, c);
-        }
-        resolve(Array.from(devices.values()));
-      } else {
-        reject({ message: response.error });
-      }
-    });
-  });
+  return await request(wsProtocol.ALL_CLIENTS);
 }
 
 function getClient(id: string): Device | undefined {
-  return testDevices.find(e => e.id == id);
+  // return testDevices.find(e => e.id == id);
+  
   return devices.get(id);
 }
 
-function registerOnClientConnected(
-  callback: (client: Device, alreadyPresent: boolean) => void
-): boolean {
-  socket.removeAllListeners(wsProtocol.CLIENT_CONNECTED);
-
-  socket.on(wsProtocol.CLIENT_CONNECTED, (e: ClientConnectedEvent) => {
-    if (!devices.has(e.client.id)) {
-      devices.set(e.client.id, e.client);
-      callback(e.client, false);
-    } else {
-      callback(e.client, true);
-    }
-  });
-
-  return true;
-}
-
-function registerOnClientDisconnected(
-  callback: (id: string, alreadyRemoved: boolean) => void
-): boolean {
-  socket.removeAllListeners(wsProtocol.CLIENT_DISCONNECTED);
-  
-  socket.on(wsProtocol.CLIENT_DISCONNECTED, (e: ClientDisconnectedEvent) => {
-    if (devices.has(e.id)) {
-      devices.delete(e.id);
-      callback(e.id, false);
-    } else {
-      callback(e.id, true);
-    }
-  });
-
-  return true;
-}
-
-function unregisterAll() {
-  for (const ev in wsProtocol) {
-    socket.removeAllListeners(ev);
-  }
-}
-
-function setServerState(enable: boolean) {
-  socket.emit(wsProtocol.SERVER_STATE, { enable: enable });
+async function setServerState(enable: boolean): Promise<ServerState> {
+  const req: ServerStateOptions = { enable };
+  return await request(wsProtocol.SERVER_STATE, req);
 }
 
 function shutdown() {
-  socket.emit(wsProtocol.SHUTDOWN);
+  const msg: ClientMessage = { message: wsProtocol.SHUTDOWN }
+  rws.send(JSON.stringify(msg));
   // TODO: close window and stop process
 }
 
@@ -110,9 +135,12 @@ const service = {
   getServerInfo,
   getAllClients,
   getClient,
-  registerOnClientConnected,
-  registerOnClientDisconnected,
-  unregisterAll,
+  setServerState,
+  shutdown,
+  onClientConnected,
+  onClientDisconnected,
+  onConnected,
+  onConnectionLost,
 };
 
 export default service;

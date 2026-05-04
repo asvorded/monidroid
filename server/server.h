@@ -22,13 +22,6 @@ struct ClientContext {
     std::thread thread;
 };
 
-struct ServerInfo {
-    std::string version;
-    bool enabled;
-    std::string hostname;
-    std::vector<std::string> addrs;
-};
-
 struct Notifier {
     std::function<void(std::shared_ptr<ClientContext>)> onClientConnected;
     std::function<void(std::shared_ptr<ClientContext>)> onClientDisconnected;
@@ -62,6 +55,4 @@ public:
 
     bool running() const;
     ClientsSet clients();
-
-    ServerInfo serverInfo();
 };

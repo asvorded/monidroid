@@ -12,6 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 import DevicePage from './pages/DevicePage';
 import { CustomThemeProvider } from './hooks/useAppTheme';
 import service from './services/wsservice';
+import { StrictMode } from 'react';
 
 const router = createBrowserRouter([
   {
@@ -35,7 +36,9 @@ const router = createBrowserRouter([
 
 const root = document.getElementById('root')!;
 createRoot(root).render(
-  <CustomThemeProvider>
-    <RouterProvider router={router} />
-  </CustomThemeProvider>
+  <StrictMode>
+    <CustomThemeProvider>
+      <RouterProvider router={router} />
+    </CustomThemeProvider>
+  </StrictMode>
 );

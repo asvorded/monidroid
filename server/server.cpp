@@ -57,25 +57,6 @@ auto Server::clients() -> ClientsSet {
     return m_clients;
 }
 
-ServerInfo Server::serverInfo() {
-    std::string hostname = asio::ip::host_name();
-
-    std::vector<std::string> addrs;
-    for (const auto &it : m_resolver.resolve(hostname, "http")) {
-        auto addr = it.endpoint().address();
-        if (addr.is_v4()) {
-            addrs.push_back(addr.to_string());
-        }
-    }
-
-    return {
-        .version = MD_SERVER_VERSION,
-        .enabled = m_running,
-        .hostname = hostname,
-        .addrs = addrs
-    };
-}
-
 void Server::serverMainAsync() {
     m_acceptor.async_accept([this](const boost::system::error_code &ec, ip::tcp::socket clientSocket) {
         if (!ec) {

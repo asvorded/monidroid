@@ -105,7 +105,7 @@ json makeMessage(std::string_view message, std::string_view objKey, const json &
 
 void setupWebSocketControl(uWS::App *app) {
     static auto handlers = std::unordered_map {
-        std::pair(std::string("/config/shutdown"), []() { shutdown(); }),
+        std::pair(std::string(Monidroid::Control::SHUTDOWN), []() { shutdown(); }),
     };
 
     app->ws<ControlContext>("/", {
@@ -142,27 +142,28 @@ void setupWebSocketControl(uWS::App *app) {
 void setupControl(uWS::App *app) {
 
     // GET server configuration
-    app->get("/config/all", [](HttpResponse<SSL> *res, HttpRequest *req) {
-        json obj;
-        if (g_server) {
-            ServerInfo info = g_server->serverInfo();
-            obj = {
-                { "version", info.version },
-                { "enabled", info.enabled },
-                { "computerName", info.hostname },
-                { "addresses", info.addrs }
-            };
-        } else {
-            obj["error"] = "Server is not running";
-            res->writeStatus("400 Bad Request");
+    app->get(Monidroid::Control::GET_CONFIG, [](HttpResponse<SSL> *res, HttpRequest *req) {
+        std::vector<std::string> addrs;
+        asio::ip::tcp::resolver resolver(context);
+        std::string hostname = asio::ip::host_name();
+        for (const auto &it : resolver.resolve(hostname, "")) {
+            auto addr = it.endpoint().address();
+            if (addr.is_v4()) {
+                addrs.push_back(addr.to_string());
+            }
         }
+        json obj;
+        obj["version"] = MD_SERVER_VERSION;
+        obj["enabled"] = g_server->running();
+        obj["computerName"] = hostname;
+        obj["addresses"] = addrs;
 
         res->writeHeader("Content-Type", "application/json");
         res->end(obj.dump());
     });
 
     // GET current clients
-    app->get("/clients/all", [](HttpResponse<SSL> *res, HttpRequest *req) {
+    app->get(Monidroid::Control::GET_CLIENTS, [](HttpResponse<SSL> *res, HttpRequest *req) {
         json obj;
         if (g_server) {
             obj["clients"] = json::array();
@@ -179,7 +180,7 @@ void setupControl(uWS::App *app) {
     });
 
     // POST server state
-    app->post("/config/serverState", [](HttpResponse<SSL> *res, HttpRequest *req) {
+    app->post(Monidroid::Control::SET_STATE, [](HttpResponse<SSL> *res, HttpRequest *req) {
         res->onData([res, buffer = std::make_unique<std::string>()](std::string_view chunk, bool isFin) mutable {
             buffer->append(chunk);
             if (!isFin) {
@@ -194,8 +195,11 @@ void setupControl(uWS::App *app) {
                 stopServers();
             }
 
+            json j;
+            j["enabled"] = enable;
+
             res->writeHeader("Content-Type", "application/json");
-            res->end(obj.dump());
+            res->end(j.dump());
         });
 
         // We only rely on RAII in unique_ptr (from examples)
