@@ -1,8 +1,8 @@
 import ReconnectingWebSocket from "reconnecting-websocket";
 
 import {
-  ServerEvent, Device, MessageHandlers, ProtocolMessages, UUID,
-  ServerInfo, ServerState, ServerStateOptions, WS_PORT, wsProtocol, ServerMessage,
+  ServerMessage, Device, MessageHandlers, ProtocolMessages, UUID,
+  ServerInfo, ServerState, ServerStateOptions, WS_PORT, wsProtocol, ServerResponse,
   ServerRequest,
   ClientMessage,
 } from "../server/websocket";
@@ -54,17 +54,17 @@ rws.onclose = (e) => {
 }
 
 rws.onmessage = (e) => {
-  const msg: ServerMessage = JSON.parse(e.data);
+  const msg: ServerResponse = JSON.parse(e.data);
 
   if ('requestId' in msg) {
-    const { requestId, error, data } = msg;
+    // const { requestId, error, data } = msg;
 
-    const pending = pendingRequests.get(requestId);
+    const pending = pendingRequests.get(msg.requestId);
     if (pending) {
-      pendingRequests.delete(requestId);
+      pendingRequests.delete(msg.requestId);
       
-      if (error) pending.reject(new Error(error));
-      else pending.resolve(data);
+      if ('error' in msg) pending.reject(new Error(msg.error));
+      else pending.resolve(msg.data);
     }
   } else { 
     const h = handlers[msg.message];
@@ -126,7 +126,7 @@ async function setServerState(enable: boolean): Promise<ServerState> {
 }
 
 function shutdown() {
-  const msg: ClientMessage = { message: wsProtocol.SHUTDOWN }
+  const msg: ClientMessage = { message: wsProtocol.SHUTDOWN };
   rws.send(JSON.stringify(msg));
   // TODO: close window and stop process
 }

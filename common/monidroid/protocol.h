@@ -63,12 +63,12 @@ namespace Monidroid {
     namespace Control {
         inline constexpr auto PORT               = 14768;
 
-        inline constexpr auto GET_CLIENTS        = "/clients/all";
-        inline constexpr auto CONNECTED_EVENT    = "/clients/new";
-        inline constexpr auto DISCONNECTED_EVENT = "/clients/disconnected";
-        inline constexpr auto GET_CONFIG         = "/config/all";
-        inline constexpr auto SET_STATE          = "/config/serverState";
-        inline constexpr auto SHUTDOWN           = "/config/shutdown";
+        inline constexpr auto GET_CLIENTS        = "clients/all";
+        inline constexpr auto CONNECTED_EVENT    = "clients/new";
+        inline constexpr auto DISCONNECTED_EVENT = "clients/disconnected";
+        inline constexpr auto GET_CONFIG         = "config/all";
+        inline constexpr auto SET_STATE          = "config/serverState";
+        inline constexpr auto SHUTDOWN           = "config/shutdown";
     }
 
     namespace Ex {

@@ -1,13 +1,13 @@
 export const WS_PORT = 14768;
 
 export const wsProtocol = {
-  ALL_CLIENTS: '/clients/all',
-  CLIENT_CONNECTED: '/clients/new',
-  CLIENT_DISCONNECTED: '/clients/disconnected',
-  DISCONNECT_CLIENT: '/clients/disconnect',
-  SERVER_STATE: '/config/serverState',
-  SERVER_CONFIG: '/config/all',
-  SHUTDOWN: '/config/shutdown',
+  ALL_CLIENTS: 'clients/all',
+  CLIENT_CONNECTED: 'clients/new',
+  CLIENT_DISCONNECTED: 'clients/disconnected',
+  DISCONNECT_CLIENT: 'clients/disconnect',
+  SERVER_STATE: 'config/serverState',
+  SERVER_CONFIG: 'config/all',
+  SHUTDOWN: 'config/shutdown',
 } as const;
 
 export type ProtocolMessages = typeof wsProtocol[keyof typeof wsProtocol];
@@ -40,7 +40,7 @@ export type ServerState = {
 }
 
 export type MessageHandlers = {
-  [K in ProtocolMessages]?: (data: Extract<ServerEvent, { message: K }>) => void;
+  [K in ProtocolMessages]?: (data: Extract<ServerMessage, { message: K }>) => void;
 }
 
 export type ServerRequest = {
@@ -50,16 +50,18 @@ export type ServerRequest = {
 }
 
 export type ClientMessage = {
-  message: ProtocolMessages
+  message: typeof wsProtocol.SHUTDOWN,
 }
 
-export type ServerMessage = {
+export type ServerResponse = {
   requestId: UUID,
   data: any,
-  error?: string,
-} | ServerEvent;
+} | {
+  requestId: UUID
+  error: string,
+} | ServerMessage;
 
-export type ServerEvent = {
+export type ServerMessage = {
   message: typeof wsProtocol.CLIENT_CONNECTED,
   client: Device,
 } | {

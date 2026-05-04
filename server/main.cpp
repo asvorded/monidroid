@@ -1,9 +1,3 @@
-#ifdef LIBUS_NO_SSL
-constexpr bool SSL = false;
-#else
-constexpr bool SSL = true;
-#endif
-
 #include <iostream>
 #include <thread>
 #include <memory>
@@ -11,11 +5,7 @@ constexpr bool SSL = true;
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
-
 #include <gst/gst.h>
-
-#include <App.h>
-
 #include <nlohmann/json.hpp>
 
 #include "monidroid.h"
@@ -23,15 +13,13 @@ constexpr bool SSL = true;
 #include "echoserver.h"
 #include "usbserver.h"
 #include "server.h"
+#include "control.h"
 
 namespace po = boost::program_options;
 using namespace uWS;
 using namespace nlohmann;
 
-struct ControlContext { };
-
-std::unique_ptr<uWS::App> g_app;
-uWS::Loop *g_loop = nullptr;
+std::unique_ptr<MDApp> g_app;
 Notifier g_notifier;
 
 boost::asio::io_context context;
@@ -103,46 +91,10 @@ json makeMessage(std::string_view message, std::string_view objKey, const json &
     return j;
 }
 
-void setupWebSocketControl(uWS::App *app) {
-    static auto handlers = std::unordered_map {
-        std::pair(std::string(Monidroid::Control::SHUTDOWN), []() { shutdown(); }),
-    };
+void setupControl(MDApp *app) {
 
-    app->ws<ControlContext>("/", {
-        .open = [](WebSocket<SSL, true, ControlContext> *ws) {
-            Monidroid::DefaultLog("Panel connected");
-
-            ws->subscribe("main");
-        },
-
-        .message = [](WebSocket<SSL, true, ControlContext> *ws, std::string_view message, uWS::OpCode opCode) {
-            json obj = json::parse(message, nullptr, false);
-            if (obj.is_discarded()) {
-                Monidroid::DefaultLog("Received unsupported message: \"{}\"", message);
-                return;
-            } else if (!obj.contains("message")) {
-                Monidroid::DefaultLog("Property \"message\" not found in message {}", message);
-                return;
-            }
-
-            auto &msg = obj["message"].get_ref<const json::string_t&>();
-            if (handlers.contains(msg)) {
-                handlers[msg]();
-            } else {
-                Monidroid::DefaultLog("Unknown message \"{}\"", msg);
-            }
-        },
-
-        .close = [](auto *ws, int code, std::string_view message) {
-            Monidroid::DefaultLog("Panel disconnected");
-        }
-    });
-}
-
-void setupControl(uWS::App *app) {
-
-    // GET server configuration
-    app->get(Monidroid::Control::GET_CONFIG, [](HttpResponse<SSL> *res, HttpRequest *req) {
+    // Get server configuration
+    app->onRequest(Monidroid::Control::GET_CONFIG, [](const json &data, std::string &error) {
         std::vector<std::string> addrs;
         asio::ip::tcp::resolver resolver(context);
         std::string hostname = asio::ip::host_name();
@@ -158,56 +110,46 @@ void setupControl(uWS::App *app) {
         obj["computerName"] = hostname;
         obj["addresses"] = addrs;
 
-        res->writeHeader("Content-Type", "application/json");
-        res->end(obj.dump());
+        return obj;
     });
 
-    // GET current clients
-    app->get(Monidroid::Control::GET_CLIENTS, [](HttpResponse<SSL> *res, HttpRequest *req) {
+    // Get current clients
+    app->onRequest(Monidroid::Control::GET_CLIENTS, [](const json &data, std::string &error) {
         json obj;
+        obj["clients"] = json::array();
         if (g_server) {
-            obj["clients"] = json::array();
             for (const auto& c : g_server->clients()) {
                 obj["clients"].push_back(getClientJson(*c.get()));
             }
-        } else {
-            obj["error"] = "Server is not running";
-            res->writeStatus("400 Bad Request");
         }
 
-        res->writeHeader("Content-Type", "application/json");
-        res->end(obj.dump());
+        return obj;
     });
 
-    // POST server state
-    app->post(Monidroid::Control::SET_STATE, [](HttpResponse<SSL> *res, HttpRequest *req) {
-        res->onData([res, buffer = std::make_unique<std::string>()](std::string_view chunk, bool isFin) mutable {
-            buffer->append(chunk);
-            if (!isFin) {
-                return;
-            }
+    // Set server state
+    app->onRequest(Monidroid::Control::SET_STATE, [](const json &data, std::string &error) {
+        if (!data.contains("enable")) {
+            error = "Incorrect usage";
+            return json();
+        }
+        
+        bool enable = data["enable"].get<bool>();
+        if (enable) {
+            startServers();
+        } else {
+            stopServers();
+        }
 
-            json obj = json::parse(*buffer);
-            bool enable = obj["enable"].get<bool>();
-            if (enable) {
-                startServers();
-            } else {
-                stopServers();
-            }
+        json obj;
+        obj["enabled"] = enable;
 
-            json j;
-            j["enabled"] = enable;
-
-            res->writeHeader("Content-Type", "application/json");
-            res->end(j.dump());
-        });
-
-        // We only rely on RAII in unique_ptr (from examples)
-        res->onAborted([]() {});
+        return obj;
     });
 
-    // WebSocket setup
-    setupWebSocketControl(app);
+    // Shutdown
+    app->onEvent(Monidroid::Control::SHUTDOWN, [](const json &) {
+        shutdown();
+    });
 }
 
 int main(int argc, char *argv[]) try {
@@ -244,21 +186,14 @@ int main(int argc, char *argv[]) try {
     // checkElevation();
     // videoHealthCheck();
 
-    g_app = std::make_unique<uWS::App>();
-    g_loop = uWS::Loop::get();
+    g_app = std::make_unique<MDApp>();
 
     g_notifier = {
-        .onClientConnected = [app = g_app.get()](auto ctx) {
-            g_loop->defer([app, ctx]() {
-                json obj = makeMessage(Monidroid::Control::CONNECTED_EVENT, "client", getClientJson(*ctx));
-                app->publish("main", obj.dump(), uWS::OpCode::TEXT);
-            });
+        .onClientConnected = [](auto ctx) {
+            g_app->emit(Monidroid::Control::CONNECTED_EVENT, "client", getClientJson(*ctx));
         },
-        .onClientDisconnected = [app = g_app.get()](auto ctx) {
-            g_loop->defer([app, ctx]() {
-                json obj = makeMessage(Monidroid::Control::DISCONNECTED_EVENT, "id", std::to_string(ctx->id));
-                app->publish("main", obj.dump(), uWS::OpCode::TEXT);
-            });
+        .onClientDisconnected = [](auto ctx) {
+            g_app->emit(Monidroid::Control::DISCONNECTED_EVENT, "id", std::to_string(ctx->id));
         }
     };
 
@@ -282,16 +217,9 @@ int main(int argc, char *argv[]) try {
 
     // Start control server
     setupControl(g_app.get());
-    g_app->listen(Monidroid::Control::PORT, [](us_listen_socket_t *s) {
-        if (s) {
-            Monidroid::DefaultLog("Control panel interface is listening on port {}", Monidroid::Control::PORT);
-        } else {
-            throw std::runtime_error("Failed to open control panel interface");
-        }
-    });
 
     // Register exit signal
-    std::signal(SIGINT, [](int) { 
+    std::signal(SIGINT, [](int) {
         Monidroid::DefaultLog("Stop requested, shutting down the server...");
 
         shutdown();
