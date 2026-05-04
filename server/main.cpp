@@ -80,7 +80,8 @@ json getClientJson(const ClientContext& ctx) {
         { "address", ctx.address.address().to_string() },
         { "connectionType", ctx.client->isUsb() ? "usb" : "wifi" },
         { "name", ctx.client->modelName() },
-        { "connectedAt", ctx.connectedAt.time_since_epoch().count() }
+        { "connectedAt", std::chrono::time_point_cast<std::chrono::milliseconds>(ctx.connectedAt)
+            .time_since_epoch().count() }
     };
 }
 
