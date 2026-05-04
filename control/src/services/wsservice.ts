@@ -15,79 +15,6 @@ type PendingRequest = {
   reject: (reason: any) => void;
 };
 
-const rws = new ReconnectingWebSocket(WS_URL);
-
-const pendingRequests = new Map<UUID, PendingRequest>();
-
-const devices: Map<string, Device> = new Map<string, Device>();
-
-let onConnectionLost = () => {};
-let onConnected = () => {};
-let onClientConnected = (client: Device, alreadyPresent: boolean) => {};
-let onClientDisconnected = (id: string, alreadyRemoved: boolean) => {};
-
-const handlers: MessageHandlers = {
-  [wsProtocol.CLIENT_CONNECTED]: ({ client }) => {
-    const present = devices.has(client.id);
-    devices.set(client.id, client);
-    onClientConnected(client, present);
-  },
-
-  [wsProtocol.CLIENT_DISCONNECTED]: ({ id }) => {
-    const removed = !devices.has(id);
-    devices.delete(id);
-    onClientDisconnected(id, removed);
-  }
-};
-
-rws.onopen = (e) => {
-  onConnected();
-};
-
-rws.onclose = (e) => {
-  pendingRequests.forEach((req, uuid) => {
-    req.reject(new Error("Connection lost"));
-  })
-  pendingRequests.clear();
-
-  onConnectionLost();
-}
-
-rws.onmessage = (e) => {
-  const msg: ServerResponse = JSON.parse(e.data);
-
-  if ('requestId' in msg) {
-    // const { requestId, error, data } = msg;
-
-    const pending = pendingRequests.get(msg.requestId);
-    if (pending) {
-      pendingRequests.delete(msg.requestId);
-      
-      if ('error' in msg) pending.reject(new Error(msg.error));
-      else pending.resolve(msg.data);
-    }
-  } else { 
-    const h = handlers[msg.message];
-    if (h) {
-      (h as any)(msg);
-    }
-  }
-}
-
-async function request(message: ProtocolMessages, obj?: any) : Promise<any> {
-  return new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID();
-
-    pendingRequests.set(requestId, { resolve, reject });
-
-    rws.send(JSON.stringify({
-      message,
-      requestId,
-      data: obj
-    } as ServerRequest))
-  });
-}
-
 const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
     id: 'dev_' + i,
     connectionType: i % 2 == 0 ? 'wifi' : 'usb',
@@ -97,50 +24,104 @@ const testDevices: Device[] = Array(5).fill(0).map((v, i) => ({
   })
 );
 
-async function getServerInfo(): Promise<ServerInfo> {
-  // return {
-  //   version: "0.1.0", enabled: true, hostname: "mypc",
-  //   addresses: [ "1.1.1.1", "2.2.2.2" ]
-  // }
+class ControlClient {
+  private readonly rws = new ReconnectingWebSocket(WS_URL);
+  private readonly pendingRequests = new Map<UUID, PendingRequest>();
+  private readonly devices: Map<string, Device> = new Map<string, Device>();
+  private readonly handlers: MessageHandlers = {
+    [wsProtocol.CLIENT_CONNECTED]: ({ client }) => {
+      const present = this.devices.has(client.id);
+      this.devices.set(client.id, client);
+      this.onClientConnected(client, present);
+    },
 
-  return await request(wsProtocol.SERVER_CONFIG);
-}
+    [wsProtocol.CLIENT_DISCONNECTED]: ({ id }) => {
+      const removed = !this.devices.has(id);
+      this.devices.delete(id);
+      this.onClientDisconnected(id, removed);
+    }
+  };
 
-async function getAllClients(): Promise<Device[]> {
-  devices.clear();
+  constructor() {
+    this.rws.onopen = (e) => {
+      this.onConnected();
+    };
+    this.rws.onclose = (e) => {
+      this.pendingRequests.forEach((req, uuid) => {
+        req.reject(new Error("Connection lost"));
+      })
+      this.pendingRequests.clear();
 
-  // return Promise.resolve(testDevices);
+      this.onConnectionLost();
+    }
+    this.rws.onmessage = (e) => {
+      const msg: ServerResponse = JSON.parse(e.data);
+
+      if ('requestId' in msg) {
+        const pending = this.pendingRequests.get(msg.requestId);
+        if (pending) {
+          this.pendingRequests.delete(msg.requestId);
+          
+          if ('error' in msg) pending.reject(new Error(msg.error));
+          else pending.resolve(msg.data);
+        }
+      } else { 
+        const h = this.handlers[msg.message];
+        if (h) {
+          (h as any)(msg);
+        }
+      }
+    }
+  }
+
+  onConnectionLost = () => {};
+
+  onConnected = () => {};
+
+  onClientConnected = (client: Device, alreadyPresent: boolean) => {};
+
+  onClientDisconnected = (id: string, alreadyRemoved: boolean) => {};
+
+  private request(message: ProtocolMessages, obj?: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const requestId = crypto.randomUUID();
   
-  return await request(wsProtocol.ALL_CLIENTS);
-}
-
-function getClient(id: string): Device | undefined {
-  // return testDevices.find(e => e.id == id);
+      this.pendingRequests.set(requestId, { resolve, reject });
   
-  return devices.get(id);
-}
-
-async function setServerState(enable: boolean): Promise<ServerState> {
-  const req: ServerStateOptions = { enable };
-  return await request(wsProtocol.SERVER_STATE, req);
-}
-
-function shutdown() {
-  const msg: ClientMessage = { message: wsProtocol.SHUTDOWN };
-  rws.send(JSON.stringify(msg));
-  // TODO: close window and stop process
-}
-
-const service = {
-  getServerInfo,
-  getAllClients,
-  getClient,
-  setServerState,
-  shutdown,
-  onClientConnected,
-  onClientDisconnected,
-  onConnected,
-  onConnectionLost,
+      this.rws.send(JSON.stringify({
+        message,
+        requestId,
+        data: obj
+      } as ServerRequest))
+    });
+  }
+  
+  async getServerInfo(): Promise<ServerInfo> {
+    return await this.request(wsProtocol.SERVER_CONFIG);
+  }
+  
+  async getAllClients(): Promise<Device[]> {
+    this.devices.clear();
+  
+    return await this.request(wsProtocol.ALL_CLIENTS);
+  }
+  
+  getClient(id: string): Device | undefined {
+    return this.devices.get(id);
+  }
+  
+  async setServerState(enable: boolean): Promise<ServerState> {
+    const req: ServerStateOptions = { enable };
+    return await this.request(wsProtocol.SERVER_STATE, req);
+  }
+  
+  shutdown() {
+    const msg: ClientMessage = { message: wsProtocol.SHUTDOWN };
+    this.rws.send(JSON.stringify(msg));
+    // TODO: close window and stop process
+  }
 };
+
+const service = new ControlClient();
 
 export default service;

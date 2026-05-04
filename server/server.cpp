@@ -87,9 +87,6 @@ void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
         std::lock_guard g(lock);
         m_clients.insert(ctx);
     }
-    if (m_notifier.onClientConnected) {
-        m_notifier.onClientConnected(ctx);
-    }
 
     auto client = ctx->client;
     try {
@@ -100,6 +97,9 @@ void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
         if (!result) {
             Monidroid::TaggedLog(TAG, "Disconnected from client due to identification error");
             return;
+        }
+        if (m_notifier.onClientConnected) {
+            m_notifier.onClientConnected(ctx);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(10));

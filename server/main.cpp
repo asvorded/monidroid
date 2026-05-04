@@ -84,13 +84,6 @@ json getClientJson(const ClientContext& ctx) {
     };
 }
 
-json makeMessage(std::string_view message, std::string_view objKey, const json &obj) {
-    json j;
-    j["message"] = message;
-    j[objKey] = obj;
-    return j;
-}
-
 void setupControl(MDApp *app) {
 
     // Get server configuration
@@ -107,7 +100,7 @@ void setupControl(MDApp *app) {
         json obj;
         obj["version"] = MD_SERVER_VERSION;
         obj["enabled"] = g_server->running();
-        obj["computerName"] = hostname;
+        obj["hostname"] = hostname;
         obj["addresses"] = addrs;
 
         return obj;
@@ -132,7 +125,7 @@ void setupControl(MDApp *app) {
             error = "Incorrect usage";
             return json();
         }
-        
+
         bool enable = data["enable"].get<bool>();
         if (enable) {
             startServers();

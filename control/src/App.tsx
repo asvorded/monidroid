@@ -57,10 +57,6 @@ const BaseApp = () => {
     };
   }, []);
 
-  useEffect(() => {
-    service.getServerInfo
-  }, []);
-
   return (
     <div className="flex h-dvh pt-8">
       <main className="flex relative flex-col flex-1 min-w-56 p-3">
