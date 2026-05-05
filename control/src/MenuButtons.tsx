@@ -21,8 +21,9 @@ export const MenuButton = ({ icon, text, className, to }: {
   </NavLink>
 );
 
-export const ShutdownButton = ({className} : ButtonButtonProps) => (
+export const ShutdownButton = ({className, onClick} : ButtonButtonProps) => (
     <Button width="max" view="outlined-danger" pin="circle-circle" size="l"
+      onClick={onClick}
       className={className}
       style={{
         justifyContent: 'flex-start',

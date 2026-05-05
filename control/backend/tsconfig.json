@@ -3,6 +3,10 @@
     "composite": true,
     "outDir": "../dist/backend",
     "module": "commonjs",
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+  },
+  "include": [
+    "./**/*",
+    "../control.d.ts"
+  ],
 }

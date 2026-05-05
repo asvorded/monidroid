@@ -10,8 +10,22 @@ function createWindow(at: string) {
       height: 32,
     },
     hasShadow: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+    }
   });
-  window.loadURL('http://localhost:14769' + at);
+  if (!app.isPackaged) {
+    window.loadURL('http://localhost:14769' + at);
+  }
+}
+
+function openWindow(at: string) {
+  const wins = BrowserWindow.getAllWindows()
+  if (wins.length === 0) {
+    createWindow("")
+  } else {
+    wins[0].focus()
+  }
 }
 
 function initTray() {
@@ -20,25 +34,11 @@ function initTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: "Open panel",
-      click: () => {
-        const wins = BrowserWindow.getAllWindows()
-        if (wins.length === 0) {
-          createWindow("")
-        } else {
-          wins[0].focus()
-        }
-      }
+      click: () => openWindow(""),
     },
     {
       label: "Settings...",
-      click: () => {
-        const wins = BrowserWindow.getAllWindows()
-        if (wins.length === 0) {
-          createWindow("/settings")
-        } else {
-          wins[0].focus()
-        }
-      }
+      click: () => openWindow("/settings"),
     },
     { type: "separator" },
     {

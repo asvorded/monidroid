@@ -117,8 +117,8 @@ class ControlClient {
   
   shutdown() {
     const msg: ClientMessage = { message: wsProtocol.SHUTDOWN };
-    this.rws.send(JSON.stringify(msg));
-    // TODO: close window and stop process
+    this.rws.send(JSON.stringify(msg));    
+    window.controlPanel.shutdown();
   }
 };
 
