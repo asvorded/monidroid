@@ -56,7 +56,7 @@ static void startServers() {
     }
     if (!g_usbServer || !g_usbServer->running()) {
         if (!g_throwIfUsbFailed) {
-            g_usbServer = std::make_unique<UsbServer>(g_hideSerials);
+            g_usbServer = std::make_unique<UsbServer>(context, g_hideSerials);
         }
     }
 }
@@ -100,7 +100,7 @@ void setupControl(MDApp *app) {
         }
         json obj;
         obj["version"] = MD_SERVER_VERSION;
-        obj["enabled"] = g_server->running();
+        obj["enabled"] = g_server ? g_server->running() : false;
         obj["hostname"] = hostname;
         obj["addresses"] = addrs;
 
@@ -199,10 +199,10 @@ int main(int argc, char *argv[]) try {
 
     // Start USB server
     if (g_throwIfUsbFailed) {
-        g_usbServer = std::make_unique<UsbServer>(g_hideSerials);
+        g_usbServer = std::make_unique<UsbServer>(context, g_hideSerials);
     } else {
         try {
-            g_usbServer = std::make_unique<UsbServer>(g_hideSerials);
+            g_usbServer = std::make_unique<UsbServer>(context, g_hideSerials);
         } catch (const std::runtime_error &e) {
             Monidroid::DefaultLog("{}", e.what());
             Monidroid::DefaultLog("USB server has failed to start, server will not support USB connections");

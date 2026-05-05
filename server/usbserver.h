@@ -29,6 +29,7 @@ private:
     const bool m_hideSerials;
     const filesystem::path m_adbPath;
 
+    asio::io_context &m_io;
     std::thread m_thread;
     bool m_running;
     libusb_hotplug_callback_handle m_callback;
@@ -46,7 +47,7 @@ private:
     void handleSaved();
         
 public:
-    UsbServer(bool hideSerials = true);
+    UsbServer(asio::io_context &ctx, bool hideSerials = true);
     ~UsbServer();
 
     bool running() const;

@@ -8,11 +8,10 @@
 #include "monidroid/logger.h"
 #include "monidroid/debug.h"
 
-using namespace boost::asio;
-
-UsbServer::UsbServer(bool hideSerials)
+UsbServer::UsbServer(asio::io_context &ctx, bool hideSerials)
   : m_hideSerials(hideSerials),
-    m_adbPath(process::environment::find_executable(ADB_PATH))
+    m_adbPath(process::environment::find_executable(ADB_PATH)),
+    m_io(ctx)
 {
     if (m_adbPath.empty()) {
         throw std::runtime_error("ADB executable was not found");
@@ -138,9 +137,7 @@ void UsbServer::handleAdbDevice(libusb_device *dev) {
 }
 
 void UsbServer::startListening(const std::string &serial) {
-    // TODO: Maybe use main context?
-    asio::io_context io_context;
-    process::popen proc(io_context, m_adbPath, {
+    process::popen proc(m_io, m_adbPath, {
         "-s", serial,
         "reverse",
         "tcp:" + std::to_string(Monidroid::PROTOCOL_PORT),

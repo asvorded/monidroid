@@ -13,15 +13,17 @@ struct GlobalConfig {
 
 BOOST_GLOBAL_FIXTURE(GlobalConfig);
 
+boost::asio::io_context ctx;
+
 BOOST_AUTO_TEST_CASE(StartStopTest) {
-    UsbServer server;
+    UsbServer server(ctx);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     BOOST_CHECK(server.running());
 }
 
 BOOST_AUTO_TEST_CASE(HotplugTest) {
-    UsbServer server;
+    UsbServer server(ctx);
     
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     BOOST_CHECK_EQUAL(server.foundDevices().size(), 0);
@@ -33,7 +35,7 @@ BOOST_AUTO_TEST_CASE(HotplugTest) {
 }
 
 BOOST_AUTO_TEST_CASE(EnumerateOneDeviceTest) {
-    UsbServer server;
+    UsbServer server(ctx);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     BOOST_CHECK_EQUAL(server.foundDevices().size(), 1);
