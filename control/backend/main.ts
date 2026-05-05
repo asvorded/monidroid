@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, Notification, Tray } from "electron";
 import path from "path";
 import service from "./wsservice";
-import { ControlIpc, IpcMessages } from "../common/ipc.types";
+import { ControlIpc, IpcMessages, PanelOptions } from "../common/control.types";
 import { ServerStateOptions } from "../common/wsservice.types";
 
 let tray: Tray;
@@ -19,6 +19,8 @@ function createWindow(at: string) {
   });
   if (!app.isPackaged) {
     window.loadURL('http://localhost:14769' + at);
+  } else {
+    window.loadFile("index.html" + at);
   }
 }
 
@@ -82,6 +84,10 @@ app.whenReady().then(() => {
   service.onConnectionLost = () => emitToWindows(ControlIpc.ConnectionLost);
   service.onClientConnected = (...args) => emitToWindows(ControlIpc.ClientConnected, ...args);
   service.onClientDisconnected = (...args) => emitToWindows(ControlIpc.ClientDisconnected, ...args);
+
+  // Panel specific handlers
+  // TODO
+  ipcMain.on(ControlIpc.GetOptions, (): PanelOptions => ({ theme: 'system', notifications: true }));
 
   // Open as tray application in release
   if (!app.isPackaged) {

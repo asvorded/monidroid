@@ -1,9 +1,6 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "composite": true,
-    "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "isolatedModules": true,
-    "esModuleInterop": true,
   },
 }

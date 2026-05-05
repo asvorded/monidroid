@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { ControlPanel } from "../common/control";
-import { ControlIpc } from "../common/ipc.types";
+import { ControlPanel, ControlIpc } from "../common/control.types";
 
 const api: ControlPanel = {
   getServerInfo: () => ipcRenderer.invoke(ControlIpc.GetServerConfig),
@@ -16,6 +15,9 @@ const api: ControlPanel = {
   off: (event) => {
     ipcRenderer.removeAllListeners(event);
   },
+
+  getOptions: () => ipcRenderer.invoke(ControlIpc.GetOptions),
+  setOptions: (options) => ipcRenderer.invoke(ControlIpc.SetOptions, options),
 
   shutdown: () => ipcRenderer.send(ControlIpc.Shutdown)
 };

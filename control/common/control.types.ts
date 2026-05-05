@@ -1,5 +1,26 @@
-import { ControlIpc, IpcMessages } from "./ipc.types"
-import { Device, ServerInfo, ServerState, ServerStateOptions } from "./wsservice.types"
+import { Device, ServerInfo, ServerState, ServerStateOptions, WsProtocol } from "./wsservice.types"
+
+export const ControlIpc = {
+  NotificationsOptions: "app/notifications-options",
+  GetOptions: "app/get-options",
+  SetOptions: "app/set-options",
+
+  GetClient: "app/get-client",
+
+  Connected: "app/connected",
+  ConnectionLost: "app/connection-lost",
+
+  ...WsProtocol
+} as const;
+
+export type IpcMessages = typeof ControlIpc[keyof typeof ControlIpc];
+
+export type AppTheme = 'dark' | 'light' | 'system';
+
+export type PanelOptions = {
+  theme: AppTheme,
+  notifications: boolean,
+};
 
 export interface ControlPanel {
   getServerInfo(): Promise<ServerInfo>,
@@ -16,6 +37,10 @@ export interface ControlPanel {
   on(event: typeof ControlIpc.ConnectionLost, cb: () => void): void,
 
   off(event: IpcMessages): void
+
+  getOptions(): Promise<PanelOptions>,
+
+  setOptions(options: Partial<PanelOptions>): Promise<void>,
 
   shutdown: () => void
 }

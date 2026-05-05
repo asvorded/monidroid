@@ -7,7 +7,7 @@ import { House, Gear, LogoAndroid, PlugConnection, CircleExclamationFill } from 
 import { MenuButton, ShutdownButton } from "./MenuButtons";
 import { Device } from "../common/wsservice.types";
 import { Outlet } from "react-router";
-import { ControlIpc } from "../common/ipc.types";
+import { ControlIpc } from "../common/control.types";
 
 const App = () => {
   const [ connected, setConnected ] = useState(true);

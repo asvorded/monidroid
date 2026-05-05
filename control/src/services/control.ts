@@ -1,4 +1,4 @@
-/// <reference types="../../common/control.d.ts" />
+import "../../common/control.types";
 
 const service = window.controlPanel;
 
