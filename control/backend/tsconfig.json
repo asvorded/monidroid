@@ -7,6 +7,6 @@
   },
   "include": [
     "./**/*",
-    "../control.d.ts"
+    "control.d.ts"
   ],
 }

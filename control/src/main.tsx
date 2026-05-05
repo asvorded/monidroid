@@ -11,7 +11,7 @@ import { RouterProvider } from 'react-router/dom';
 import SettingsPage from './pages/SettingsPage';
 import DevicePage from './pages/DevicePage';
 import { CustomThemeProvider } from './hooks/useAppTheme';
-import service from './services/wsservice';
+import service from './services/control';
 import { StrictMode } from 'react';
 
 const router = createBrowserRouter([

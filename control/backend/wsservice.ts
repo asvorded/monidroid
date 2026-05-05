@@ -1,14 +1,12 @@
 import ReconnectingWebSocket from "reconnecting-websocket";
 
 import {
-  ServerMessage, Device, MessageHandlers, ProtocolMessages, UUID,
-  ServerInfo, ServerState, ServerStateOptions, WS_PORT, wsProtocol, ServerResponse,
-  ServerRequest,
-  ClientMessage,
-} from "./wsservice.types";
+  MessageHandlers, ProtocolMessages, UUID,
+  WsPort, WsProtocol, ServerResponse, ServerRequest, ClientMessage,
+  Device, ServerInfo, ServerState, ServerStateOptions
+} from "../common/wsservice.types";
 
-const WS_URL = `ws://localhost:${WS_PORT}/`;
-const HTTP_URL = `http://localhost:${WS_PORT}/`;
+const WS_URL = `ws://localhost:${WsPort}/`;
 
 type PendingRequest = {
   resolve: (value: any) => void;
@@ -29,13 +27,13 @@ class ControlClient {
   private readonly pendingRequests = new Map<UUID, PendingRequest>();
   private readonly devices: Map<string, Device> = new Map<string, Device>();
   private readonly handlers: MessageHandlers = {
-    [wsProtocol.CLIENT_CONNECTED]: ({ client }) => {
+    [WsProtocol.ClientConnected]: ({ client }) => {
       const present = this.devices.has(client.id);
       this.devices.set(client.id, client);
       this.onClientConnected(client, present);
     },
 
-    [wsProtocol.CLIENT_DISCONNECTED]: ({ id }) => {
+    [WsProtocol.ClientDisconnected]: ({ id }) => {
       const removed = !this.devices.has(id);
       this.devices.delete(id);
       this.onClientDisconnected(id, removed);
@@ -97,28 +95,26 @@ class ControlClient {
   }
   
   async getServerInfo(): Promise<ServerInfo> {
-    return await this.request(wsProtocol.SERVER_CONFIG);
+    return await this.request(WsProtocol.GetServerConfig);
   }
   
   async getAllClients(): Promise<Device[]> {
     this.devices.clear();
   
-    return await this.request(wsProtocol.ALL_CLIENTS);
+    return await this.request(WsProtocol.GetAllClients);
   }
   
   getClient(id: string): Device | undefined {
     return this.devices.get(id);
   }
   
-  async setServerState(enable: boolean): Promise<ServerState> {
-    const req: ServerStateOptions = { enable };
-    return await this.request(wsProtocol.SERVER_STATE, req);
+  async setServerState(options: ServerStateOptions): Promise<ServerState> {
+    return await this.request(WsProtocol.SetServerState, options);
   }
   
   shutdown() {
-    const msg: ClientMessage = { message: wsProtocol.SHUTDOWN };
-    this.rws.send(JSON.stringify(msg));    
-    window.controlPanel.shutdown();
+    const msg: ClientMessage = { message: WsProtocol.Shutdown };
+    this.rws.send(JSON.stringify(msg));
   }
 };
 

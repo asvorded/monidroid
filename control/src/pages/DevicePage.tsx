@@ -1,9 +1,10 @@
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 import { useEffect, useRef, useState } from "react";
 
+//@ts-ignore
 import AndroidLogo from "../../static/android.svg?react";
 import { useLoaderData } from "react-router";
-import { Device } from "../services/wsservice.types";
+import { Device } from "../../common/wsservice.types";
 
 function formatTime (ms: number) {
   const totalSeconds = Math.floor(ms / 1000);

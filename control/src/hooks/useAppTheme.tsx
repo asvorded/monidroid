@@ -12,7 +12,12 @@ type ThemeService = {
   toggleSystem: (system: boolean) => void,
 }
 
-const ThemeContext = createContext<ThemeService>(null);
+const ThemeContext = createContext<ThemeService>({
+  theme: 'light',
+  system: true,
+  setTheme: () => { },
+  toggleSystem: (system) => { },
+});
 
 export function useAppTheme() {
   const context = useContext(ThemeContext);
@@ -22,7 +27,7 @@ export function useAppTheme() {
   return context;
 };
 
-export const CustomThemeProvider = ({children}) => {
+export const CustomThemeProvider = ({ children } : { children: any }) => {
   const [theme, setTheme] = useState<AppTheme>('light');
   const [system, setSystem] = useState<boolean>(true);
 

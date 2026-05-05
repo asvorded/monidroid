@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain, Menu, Notification, Tray } from "electron";
 import path from "path";
+import service from "./wsservice";
+import { ControlIpc, IpcMessages } from "../common/ipc.types";
+import { ServerStateOptions } from "../common/wsservice.types";
 
 let tray: Tray;
 
@@ -22,9 +25,15 @@ function createWindow(at: string) {
 function openWindow(at: string) {
   const wins = BrowserWindow.getAllWindows()
   if (wins.length === 0) {
-    createWindow("")
+    createWindow("");
   } else {
-    wins[0].focus()
+    wins[0].focus();
+  }
+}
+
+function emitToWindows(msg: IpcMessages, ...args: any[]) {
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send(msg, ...args);
   }
 }
 
@@ -50,17 +59,35 @@ function initTray() {
     {
       label: "Shutdown",
       click: () => {
-        // TODO
+        service.shutdown();
+        app.quit();
       }
     },
   ]));
 }
 
 app.whenReady().then(() => {
-  createWindow("");
+  // Request handlers
+  ipcMain.handle(ControlIpc.GetServerConfig, () => service.getServerInfo());
+  ipcMain.handle(ControlIpc.GetAllClients, () => service.getAllClients());
+  ipcMain.handle(ControlIpc.GetClient, (_, id: string) => service.getClient(id));
+  ipcMain.handle(ControlIpc.SetServerState, (_, options: ServerStateOptions) => service.setServerState(options));
+  ipcMain.on(ControlIpc.Shutdown, () => {
+    service.shutdown();
+    app.quit();
+  });
+
+  // Event hadlers
+  service.onConnected = () => emitToWindows(ControlIpc.Connected);
+  service.onConnectionLost = () => emitToWindows(ControlIpc.ConnectionLost);
+  service.onClientConnected = (...args) => emitToWindows(ControlIpc.ClientConnected, ...args);
+  service.onClientDisconnected = (...args) => emitToWindows(ControlIpc.ClientDisconnected, ...args);
+
+  // Open as tray application in release
+  if (!app.isPackaged) {
+    createWindow("");
+  }
   initTray();
 });
 
-app.on('window-all-closed', () => {
-  
-});
+app.on('window-all-closed', () => { });

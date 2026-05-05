@@ -1,24 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 
-import service from "./services/wsservice";
+import service from "./services/control";
 
 import { Divider, Text, Icon, Button } from "@gravity-ui/uikit";
 import { House, Gear, LogoAndroid, PlugConnection, CircleExclamationFill } from '@gravity-ui/icons';
 import { MenuButton, ShutdownButton } from "./MenuButtons";
-import { Device } from "./services/wsservice.types";
+import { Device } from "../common/wsservice.types";
 import { Outlet } from "react-router";
+import { ControlIpc } from "../common/ipc.types";
 
 const App = () => {
   const [ connected, setConnected ] = useState(true);
   const [ confirm, setConfirm ] = useState(false);
 
   useEffect(() => {
-    service.onConnected = () => {
+    service.on(ControlIpc.Connected, () => {
       setConnected(true);
-    }
-    service.onConnectionLost = () => {
-      setConnected(false)
-    }
+    });
+
+    service.on(ControlIpc.ConnectionLost, () => {
+      setConnected(false);
+    });
   }, []);
   
   return (
@@ -76,21 +78,21 @@ const BaseApp = ({onShutdownClick} : {
   const [ clients, setClients ] = useState<Device[]>([]);
 
   useEffect(() => {
-    service.onClientConnected = (client, alreadyPresent) => {
+    service.on(ControlIpc. ClientConnected, (client, alreadyPresent) => {
       if (!alreadyPresent) {
         setClients([...clients, client]);
       }
-    };
+    });
 
-    service.onClientDisconnected = (id, alreadyRemoved) => {
+    service.on(ControlIpc.ClientDisconnected, (id, alreadyRemoved) => {
       if (!alreadyRemoved) {
         setClients(clients.filter(c => c.id != id));
       }
-    };
+    });
 
     return () => {
-      service.onClientConnected = () => {};
-      service.onClientDisconnected = () => {};
+      service.off(ControlIpc.ClientConnected);
+      service.off(ControlIpc.ClientDisconnected);
     };
   }, []);
 
