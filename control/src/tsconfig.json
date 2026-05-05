@@ -1,20 +1,9 @@
 {
   "compilerOptions": {
     "composite": true,
-    "outDir": "../dist/frontend",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "module": "nodenext",
     "isolatedModules": true,
     "esModuleInterop": true,
   },
-  "files": [
-    "../common/wsservice.types.ts",
-  ],
-  "include": [
-    "./**/*",
-    "../common/control.d.ts",
-  ],
-  "exclude": [
-    "vite.config.ts"
-  ]
 }
