@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Enable server autostart</DisplayName>
+    <Description>Allows to launch the server during OS startup.</Description>
+    <Version>0.1</Version>
+    <ReleaseDate>2026-04-30</ReleaseDate>
+
+    <Dependencies>com.monidroid.control</Dependencies>
+</Package>

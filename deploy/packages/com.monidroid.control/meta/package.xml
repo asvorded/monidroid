@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Control panel</DisplayName>
+    <Description>GUI component for managing server (optional).</Description>
+    <Version>0.1.0</Version>
+    <ReleaseDate>2026-04-30</ReleaseDate>
+
+    <Dependencies>com.monidroid.server</Dependencies>
+</Package>

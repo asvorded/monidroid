@@ -20,3 +20,7 @@ dist/
 # npm
 node_modules/
 package-lock.json
+
+# Deploy artifacts
+deploy/packages/*/data/*
+deploy/monidroid-*-setup

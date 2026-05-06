@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Server</DisplayName>
+    <Description>Server component.</Description>
+    <Version>0.1.0</Version>
+    <ReleaseDate>2026-04-30</ReleaseDate>
+    
+    <RequiresAdminRights>true</RequiresAdminRights>
+    <ForcedInstallation>true</ForcedInstallation>
+    <Script>script.qs</Script>
+</Package>

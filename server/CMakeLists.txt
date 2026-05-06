@@ -142,3 +142,11 @@ elseif(WIN32)
             monidroid-win32
     )
 endif()
+
+if(MD_DEPLOY)
+# Custom installation
+install(TARGETS ${SERVER_TARGET}
+    RUNTIME_DEPENDENCIES
+    DESTINATION "com.monidroid.server/data"
+)
+endif()

@@ -1,0 +1,7 @@
+[Unit]
+Decription=Monidroid server
+
+[Service]
+ExecStart=/usr/bin/monidroid-server
+RestartKillSignal=SIGINT
+KillSignal=SIGINT
