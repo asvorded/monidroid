@@ -29,6 +29,8 @@ export interface ControlPanel {
 
   getClient(id: string): Promise<Device | undefined>,
 
+  forceDisconnect(id: string): Promise<void>,
+
   setServerState(options: ServerStateOptions): Promise<ServerState>,
 
   on(event: typeof ControlIpc.ClientConnected, cb: (client: Device, alreadyPresents: boolean) => void): void,

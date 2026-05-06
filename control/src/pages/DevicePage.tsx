@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import AndroidLogo from "../../static/android.svg?react";
 import { useLoaderData } from "react-router";
 import { Device } from "../../common/wsservice.types";
+import service from "../services/control";
 
 function formatTime (ms: number) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -21,6 +22,8 @@ const DevicePage = () => {
 
   const startTimeRef = useRef(device.connectedAt);
   const [uptime, setUptime] = useState(Date.now() - startTimeRef.current); // ms
+
+  const [forceActive, setForceActive] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -42,7 +45,7 @@ const DevicePage = () => {
         <span className="ripple" style={{ animationDelay: '0.75s' }}></span>
       </div>
         
-      <div className="flex flex-col mt-6">
+      <div className="flex flex-col items-center mt-6">
         <Text className="block text-center pl-4 pr-4" variant="display-3">{device.name}</Text>
         <div className="m-4 grid grid-cols-2 gap-1">
           <Text variant="body-2">Connection type</Text>
@@ -56,6 +59,13 @@ const DevicePage = () => {
           <Text variant="body-2">Uptime</Text>
           <Text className="justify-self-end" variant="body-2">{formatTime(uptime)}</Text>
         </div>
+        <Button view="outlined-danger"
+          disabled={!forceActive} loading={!forceActive}
+          onClick={() => {
+            setForceActive(false);
+            service.forceDisconnect(device.id);
+          }}
+        >Force disconnect</Button>
       </div>
     </div>
   );

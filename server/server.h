@@ -55,4 +55,6 @@ public:
 
     bool running() const;
     ClientsSet clients();
+
+    bool forceDisconnect(const std::string &id);
 };

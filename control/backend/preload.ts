@@ -6,6 +6,8 @@ const api: ControlPanel = {
   getServerInfo: () => ipcRenderer.invoke(ControlIpc.GetServerConfig),
   getAllClients: () => ipcRenderer.invoke(ControlIpc.GetAllClients),
   getClient: (id) => ipcRenderer.invoke(ControlIpc.GetClient, id),
+  forceDisconnect: (id) => ipcRenderer.invoke(ControlIpc.DisconnectClient, id),
+
   setServerState: (options) => ipcRenderer.invoke(ControlIpc.SetServerState, options),
   
   on: (event, cb: (...args: any[]) => void) => {

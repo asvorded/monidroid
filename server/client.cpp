@@ -290,6 +290,9 @@ void Client::disconnectMonitor() {
     monitorDisconnect(m_monitor);
 
     m_state = ClientState::Disconnected;
+
+    error_code ec;
+    m_socket.shutdown(m_socket.shutdown_both, ec);
 }
 
 void Client::forceDisconnect(bool withError) {

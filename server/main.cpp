@@ -144,6 +144,13 @@ void setupControl(MDApp *app) {
     app->onEvent(Monidroid::Control::SHUTDOWN, [](const json &) {
         shutdown();
     });
+
+    // Force disconnect
+    app->onEvent(Monidroid::Control::DISCONNECT_CLIENT, [](const json &msg) {
+        if (g_server) {
+            g_server->forceDisconnect(msg["id"].get_ref<const json::string_t &>());
+        }
+    });
 }
 
 int main(int argc, char *argv[]) try {

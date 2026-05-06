@@ -34,6 +34,9 @@ export type ServerResponse = {
 
 export type ClientMessage = {
   message: typeof WsProtocol.Shutdown,
+} | {
+  message: typeof WsProtocol.DisconnectClient,
+  id: string
 }
 
 export type ServerMessage = {

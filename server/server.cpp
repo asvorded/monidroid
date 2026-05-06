@@ -28,11 +28,12 @@ Server::~Server() {
 
     //                                ( this thread |     client's thread     )
     // Make copy to prevent deadlocks (   t.join()  | std::guard_lock g(lock) );
-    std::set<std::shared_ptr<ClientContext>> copy;
+    ClientsSet copy;
     {
         std::lock_guard g(lock);
-        copy = m_clients;
-        m_clients.clear();
+        copy = std::move(m_clients);
+        // copy = m_clients;
+        // m_clients.clear();
     }
     if (!copy.empty()) {
         Monidroid::TaggedLog(TAG, "Some clients are still connected, forcing disconnect...");
@@ -55,6 +56,21 @@ bool Server::running() const {
 auto Server::clients() -> ClientsSet {
     std::lock_guard g(lock);
     return m_clients;
+}
+
+bool Server::forceDisconnect(const std::string &id) {
+    bool result = false;
+    {
+        std::lock_guard g(lock);
+        auto it = std::find_if(m_clients.cbegin(), m_clients.cend(), [&id](const auto &c) {
+            return std::to_string(c->id) == id;
+        });
+        if (it != m_clients.cend()) {
+            (*it)->client->forceDisconnect(true);
+            result = true;
+        }
+    }
+    return result;
 }
 
 void Server::serverMainAsync() {

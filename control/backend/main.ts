@@ -43,7 +43,7 @@ function createWindow(at: string) {
 function openWindow(at: string) {
   const wins = BrowserWindow.getAllWindows()
   if (wins.length === 0) {
-    createWindow("");
+    createWindow(at);
   } else {
     wins[0].focus();
   }
@@ -89,6 +89,8 @@ app.whenReady().then(() => {
   ipcMain.handle(ControlIpc.GetServerConfig, () => service.getServerInfo());
   ipcMain.handle(ControlIpc.GetAllClients, () => service.getAllClients());
   ipcMain.handle(ControlIpc.GetClient, (_, id: string) => service.getClient(id));
+  ipcMain.handle(ControlIpc.DisconnectClient, (_, id: string) => service.forceDisconnect(id));
+
   ipcMain.handle(ControlIpc.SetServerState, (_, options: ServerStateOptions) => service.setServerState(options));
   ipcMain.on(ControlIpc.Shutdown, () => {
     service.shutdown();
@@ -103,7 +105,8 @@ app.whenReady().then(() => {
       new Notification({
         title: "Monidroid",
         body: `Client ${client.name} connected`,
-        icon: path.resolve(staticPath, nativeTheme.shouldUseDarkColors ? 'connected-light.png' : 'connected-dark.png')
+        icon: path.resolve(staticPath,
+          nativeTheme.shouldUseDarkColorsForSystemIntegratedUI ? 'connected-dark.png' : 'connected-light.png')
       }).show();
     }
     emitToWindows(ControlIpc.ClientConnected, client, presents);
@@ -112,8 +115,9 @@ app.whenReady().then(() => {
     if (config.notifications && !removed) {
       new Notification({
         title: "Monidroid",
-        body: `Client ${client.name} disonnected`,
-        icon: path.resolve(staticPath, nativeTheme.shouldUseDarkColors ? 'disconnected-dark.png' : 'disconnected-light.png')
+        body: `Client ${client.name} disconnected`,
+        icon: path.resolve(staticPath,
+          nativeTheme.shouldUseDarkColorsForSystemIntegratedUI ? 'disconnected-dark.png' : 'disconnected-light.png')
       }).show();
     }
     emitToWindows(ControlIpc.ClientDisconnected, client.id, removed);

@@ -110,6 +110,11 @@ class ControlClient {
   getClient(id: string): Device | undefined {
     return this.devices.get(id);
   }
+
+  forceDisconnect(id: string) {
+    const msg: ClientMessage = { message: WsProtocol.DisconnectClient, id };
+    this.rws.send(JSON.stringify(msg));
+  }
   
   async setServerState(options: ServerStateOptions): Promise<ServerState> {
     return await this.request(WsProtocol.SetServerState, options);
