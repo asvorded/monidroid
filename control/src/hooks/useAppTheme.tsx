@@ -3,8 +3,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppTheme } from '../../common/control.types';
 import service from '../services/control';
 
-const THEME_KEY = 'md-app-theme';
-
 type ThemeService = {
   theme: AppTheme,
   setTheme: (theme: AppTheme) => void,

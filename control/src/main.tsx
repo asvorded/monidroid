@@ -5,7 +5,7 @@ import './theme.css';
 
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { createBrowserRouter } from 'react-router';
+import { createHashRouter } from 'react-router';
 import HomePage from './pages/HomePage';
 import { RouterProvider } from 'react-router/dom';
 import SettingsPage from './pages/SettingsPage';
@@ -14,7 +14,7 @@ import { CustomThemeProvider } from './hooks/useAppTheme';
 import service from './services/control';
 import { StrictMode } from 'react';
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: '/',
     Component: App,
@@ -24,11 +24,15 @@ const router = createBrowserRouter([
         Component: HomePage,
         loader: async () => await service.getServerInfo(),
       },
-      { path: 'settings', Component: SettingsPage },
+      {
+        path: 'settings',
+        Component: SettingsPage,
+        loader: async () => await service.getOptions(),
+      },
       {
         path: 'devices/:id',
         Component: DevicePage,
-        loader: ({params}) => service.getClient(params.id!!),
+        loader: async ({params}) => await service.getClient(params.id!!),
       },
     ],
   },

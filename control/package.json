@@ -6,14 +6,16 @@
     "ui-dev": "vite serve src --port 14769",
     "app-dev": "node build-backend.mjs --debug && electron .",
     "ui-build": "npx vite build src --outDir ../dist",
-    "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "app-build": "node build-backend.mjs && npm run ui-build && electron-packager ./dist --out=./out --overwrite",
+    "start": "electron-forge start",
+    "package": "electron-forge package"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "electron-squirrel-startup": "^1.0.1",
     "i18n-react": "^0.7.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
@@ -23,6 +25,7 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
+    "@electron/packager": "^20.0.0",
     "@gravity-ui/uikit": "^7.28.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

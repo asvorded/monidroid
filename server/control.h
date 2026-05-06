@@ -86,9 +86,7 @@ MDApp::MDApp()
     });
 
     listen(Monidroid::Control::PORT, [](us_listen_socket_t *s) {
-        if (s) {
-            Monidroid::DefaultLog("Control panel interface is listening on port {}", Monidroid::Control::PORT);
-        } else {
+        if (!s) {
             throw std::runtime_error("Failed to open control panel interface");
         }
     });

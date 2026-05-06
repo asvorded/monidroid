@@ -1,26 +1,25 @@
 import { Button, Icon, Select, SelectItem, Switch, Text } from "@gravity-ui/uikit";
-import { Sun } from '@gravity-ui/icons';
 import { useAppTheme } from "../hooks/useAppTheme";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { AppTheme } from "../../common/control.types";
+import { AppTheme, PanelOptions } from "../../common/control.types";
 import service from "../services/control";
-
-const initial = (await service.getOptions()).notifications;
+import { useLoaderData } from "react-router";
 
 const SettingsPage = () => {
   const { theme, setTheme } = useAppTheme();
+  const { notifications } = useLoaderData<PanelOptions>();
 
-  const [notifications, setNotifications] = useState(initial);
+  const [notif, setNotif] = useState(notifications);
 
   return (
     <>
       <Text variant="header-2">Settings</Text>
       <div className="flex flex-col mt-4 gap-3">
         {/* TODO: theme and notifications */}
-          <Switch className="items-center" checked={notifications} onUpdate={(c) => {
+          <Switch className="items-center" checked={notif} onUpdate={(c) => {
             service.setOptions({ notifications: c });
-            setNotifications(c);
+            setNotif(c);
           }}>
             <Text className="block" variant="body-2">System notifications</Text>
           </Switch>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, Tray } from "electron/main";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, Tray } from "electron/main";
 import path from "path";
 import fs from "fs";
 import service from "./wsservice";
@@ -9,7 +9,7 @@ let tray: Tray;
 
 const configPath = path.resolve(app.getPath('userData'), "monidroid.json");
 const preloadPath = path.resolve(__dirname, "preload.js");
-const staticPath = path.resolve(app.getAppPath(), "static");
+const staticPath = path.resolve(__dirname, "static");
 
 const defaultConfig: PanelOptions = {
   theme: 'system',
@@ -33,10 +33,11 @@ function createWindow(at: string) {
       preload: preloadPath,
     }
   });
+  // Using hash router
   if (!app.isPackaged) {
-    window.loadURL('http://localhost:14769' + at);
+    window.loadURL('http://localhost:14769#' + at);
   } else {
-    window.loadFile("index.html" + at);
+    window.loadFile("index.html", { hash: at });
   }
 }
 
@@ -69,15 +70,25 @@ function initTray() {
     },
     { type: "separator" },
     {
-      label: "Exit panel",
-      click: () => {
-        app.quit();
+      label: "Shutdown",
+      click: async () => {
+        const { response } = await dialog.showMessageBox({
+          title: "Monidroid",
+          message: "Are you sure to shutdown the server?",
+          type: 'question',
+          buttons: [ "Yes", "No" ],
+          defaultId: 1,
+        });
+        if (response == 0) {
+          service.shutdown();
+          app.quit();
+        }
       }
     },
+    { type: "separator" },
     {
-      label: "Shutdown",
+      label: "Quit",
       click: () => {
-        service.shutdown();
         app.quit();
       }
     },
@@ -124,10 +135,7 @@ app.whenReady().then(() => {
   }
 
   // Panel specific handlers
-  ipcMain.handle(ControlIpc.GetOptions, (): PanelOptions => ({
-    theme: nativeTheme.themeSource,
-    notifications: config.notifications
-  }));
+  ipcMain.handle(ControlIpc.GetOptions, (): PanelOptions => config);
   ipcMain.handle(ControlIpc.SetOptions, (_, options: Partial<PanelOptions>) => {
     if (options.theme !== undefined) {
       nativeTheme.themeSource = options.theme;
@@ -136,7 +144,11 @@ app.whenReady().then(() => {
     if (options.notifications !== undefined) {
       config.notifications = options.notifications;
     }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
   });
+
+  // Initialization from options
+  nativeTheme.themeSource = config.theme;
 
   // Open as tray application in release
   if (!app.isPackaged) {
