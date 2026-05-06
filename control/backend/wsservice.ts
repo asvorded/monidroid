@@ -34,9 +34,12 @@ class ControlClient {
     },
 
     [WsProtocol.ClientDisconnected]: ({ id }) => {
-      const removed = !this.devices.has(id);
-      this.devices.delete(id);
-      this.onClientDisconnected(id, removed);
+      // TODO: receive full info, not only id
+      const dev = this.devices.get(id);
+      if (dev !== undefined) {
+        this.onClientDisconnected(dev, false);
+        this.devices.delete(id);
+      }
     }
   };
 
@@ -78,7 +81,7 @@ class ControlClient {
 
   onClientConnected = (client: Device, alreadyPresent: boolean) => {};
 
-  onClientDisconnected = (id: string, alreadyRemoved: boolean) => {};
+  onClientDisconnected = (client: Device, alreadyRemoved: boolean) => {};
 
   private request(message: ProtocolMessages, obj?: any): Promise<any> {
     return new Promise((resolve, reject) => {

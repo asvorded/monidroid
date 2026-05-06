@@ -1,22 +1,20 @@
 import { ThemeProvider } from '@gravity-ui/uikit';
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppTheme } from '../../common/control.types';
+import service from '../services/control';
 
 const THEME_KEY = 'md-app-theme';
 
-type AppTheme = 'dark' | 'light';
-
 type ThemeService = {
   theme: AppTheme,
-  system: boolean,
   setTheme: (theme: AppTheme) => void,
-  toggleSystem: (system: boolean) => void,
 }
 
+const initial = await service.getOptions();
+
 const ThemeContext = createContext<ThemeService>({
-  theme: 'light',
-  system: true,
+  theme: initial.theme,
   setTheme: () => { },
-  toggleSystem: (system) => { },
 });
 
 export function useAppTheme() {
@@ -27,42 +25,29 @@ export function useAppTheme() {
   return context;
 };
 
-export const CustomThemeProvider = ({ children } : { children: any }) => {
-  const [theme, setTheme] = useState<AppTheme>('light');
-  const [system, setSystem] = useState<boolean>(true);
+export const CustomThemeProvider = ({ children } : { children: React.ReactNode }) => {
+  const [theme, setTheme] = useState<AppTheme>(initial.theme);
+  // const [realTheme, setRealTheme] = useState<"dark" | "light">();
+
+  // useEffect(() => {
+  //   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  //   const updateResolvedTheme = () => {
+  //     if (theme == "system") {
+  //       setRealTheme(mediaQuery.matches ? 'dark' : 'light');
+  //     }
+  //   };
+  //   updateResolvedTheme();
+  //   mediaQuery.addEventListener('change', updateResolvedTheme);
+  //   return () => mediaQuery.removeEventListener('change', updateResolvedTheme);
+  // }, []);
 
   useEffect(() => {
-    const storedTheme = localStorage.getItem(THEME_KEY) as AppTheme;
-    if (storedTheme) {
-      setTheme(storedTheme);
-    } else {
-      setSystem(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (system) {
-      localStorage.removeItem(THEME_KEY)
-    } else {
-      localStorage.setItem(THEME_KEY, theme);
-    }
-  }, [theme, system]);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const updateResolvedTheme = () => {
-      if (system) {
-        setTheme(mediaQuery.matches ? 'dark' : 'light');
-      }
-    };
-    updateResolvedTheme();
-    mediaQuery.addEventListener('change', updateResolvedTheme);
-    return () => mediaQuery.removeEventListener('change', updateResolvedTheme);
-  }, []);
+    service.setOptions({ theme });
+  }, [theme]);
 
   return (
-    <ThemeContext value={{ theme, system, setTheme, toggleSystem: setSystem }}>
-      <ThemeProvider theme={system ? 'system' : theme}>
+    <ThemeContext value={{ theme, setTheme }}>
+      <ThemeProvider theme={theme}>
         {children}
       </ThemeProvider>
     </ThemeContext>

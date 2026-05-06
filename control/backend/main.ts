@@ -1,10 +1,26 @@
-import { app, BrowserWindow, ipcMain, Menu, Notification, Tray } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, Tray } from "electron/main";
 import path from "path";
+import fs from "fs";
 import service from "./wsservice";
 import { ControlIpc, IpcMessages, PanelOptions } from "../common/control.types";
 import { ServerStateOptions } from "../common/wsservice.types";
 
 let tray: Tray;
+
+const configPath = path.resolve(app.getPath('userData'), "monidroid.json");
+const preloadPath = path.resolve(__dirname, "preload.js");
+const staticPath = path.resolve(app.getAppPath(), "static");
+
+const defaultConfig: PanelOptions = {
+  theme: 'system',
+  notifications: true,
+}
+
+if (!fs.existsSync(configPath)) {
+  fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+}
+
+let config: PanelOptions = JSON.parse(fs.readFileSync(configPath).toString())
 
 function createWindow(at: string) {
   const window = new BrowserWindow({
@@ -14,7 +30,7 @@ function createWindow(at: string) {
     },
     hasShadow: true,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: preloadPath,
     }
   });
   if (!app.isPackaged) {
@@ -40,7 +56,7 @@ function emitToWindows(msg: IpcMessages, ...args: any[]) {
 }
 
 function initTray() {
-  tray = new Tray(path.join(app.getAppPath(), "static", "logo.png"));
+  tray = new Tray(path.resolve(staticPath, "logo.png"));
   tray.setToolTip("Monidroid control panel");
   tray.setContextMenu(Menu.buildFromTemplate([
     {
@@ -82,12 +98,41 @@ app.whenReady().then(() => {
   // Event hadlers
   service.onConnected = () => emitToWindows(ControlIpc.Connected);
   service.onConnectionLost = () => emitToWindows(ControlIpc.ConnectionLost);
-  service.onClientConnected = (...args) => emitToWindows(ControlIpc.ClientConnected, ...args);
-  service.onClientDisconnected = (...args) => emitToWindows(ControlIpc.ClientDisconnected, ...args);
+  service.onClientConnected = (client, presents) => {
+    if (config.notifications && !presents) {
+      new Notification({
+        title: "Monidroid",
+        body: `Client ${client.name} connected`,
+        icon: path.resolve(staticPath, nativeTheme.shouldUseDarkColors ? 'connected-light.png' : 'connected-dark.png')
+      }).show();
+    }
+    emitToWindows(ControlIpc.ClientConnected, client, presents);
+  }
+  service.onClientDisconnected = (client, removed) => {
+    if (config.notifications && !removed) {
+      new Notification({
+        title: "Monidroid",
+        body: `Client ${client.name} disonnected`,
+        icon: path.resolve(staticPath, nativeTheme.shouldUseDarkColors ? 'disconnected-dark.png' : 'disconnected-light.png')
+      }).show();
+    }
+    emitToWindows(ControlIpc.ClientDisconnected, client.id, removed);
+  }
 
   // Panel specific handlers
-  // TODO
-  ipcMain.on(ControlIpc.GetOptions, (): PanelOptions => ({ theme: 'system', notifications: true }));
+  ipcMain.handle(ControlIpc.GetOptions, (): PanelOptions => ({
+    theme: nativeTheme.themeSource,
+    notifications: config.notifications
+  }));
+  ipcMain.handle(ControlIpc.SetOptions, (_, options: Partial<PanelOptions>) => {
+    if (options.theme !== undefined) {
+      nativeTheme.themeSource = options.theme;
+      config.theme = options.theme;
+    }
+    if (options.notifications !== undefined) {
+      config.notifications = options.notifications;
+    }
+  });
 
   // Open as tray application in release
   if (!app.isPackaged) {
@@ -97,3 +142,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => { });
+
+app.on('will-quit', () => {
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+})

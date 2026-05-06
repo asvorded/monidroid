@@ -99,11 +99,6 @@ const BaseApp = ({onShutdownClick} : {
   return (
     <div className="flex h-dvh pt-8">
       <main className="flex relative flex-col flex-1 min-w-56 p-3">
-        <header className="mb-3">
-          <Text variant="display-2" className="block">Monidroid</Text>
-          <Text className="block" variant="header-1">Control panel</Text>
-        </header>
-
         <section
           className="shadowed-scroll-area"
           style={{ height: 'stretch', scrollbarWidth: 'thin' }}

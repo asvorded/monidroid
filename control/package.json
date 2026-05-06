@@ -4,7 +4,7 @@
   "main": "dist/main.js",
   "scripts": {
     "ui-dev": "vite serve src --port 14769",
-    "app-dev": "node build-backend.mjs && electron .",
+    "app-dev": "node build-backend.mjs --debug && electron .",
     "ui-build": "npx vite build src --outDir ../dist",
     "start": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from "electron/renderer";
 
 import { ControlPanel, ControlIpc } from "../common/control.types";
 

@@ -4,17 +4,24 @@ import { useAppTheme } from "../hooks/useAppTheme";
 import { useCallback, useState } from "react";
 
 import { AppTheme } from "../../common/control.types";
+import service from "../services/control";
+
+const initial = (await service.getOptions()).notifications;
 
 const SettingsPage = () => {
+  const { theme, setTheme } = useAppTheme();
 
-  const [ theme, setTheme ] = useState<AppTheme>('system');
+  const [notifications, setNotifications] = useState(initial);
 
   return (
     <>
       <Text variant="header-2">Settings</Text>
       <div className="flex flex-col mt-4 gap-3">
         {/* TODO: theme and notifications */}
-          <Switch className="items-center">
+          <Switch className="items-center" checked={notifications} onUpdate={(c) => {
+            service.setOptions({ notifications: c });
+            setNotifications(c);
+          }}>
             <Text className="block" variant="body-2">System notifications</Text>
           </Switch>
           <div>
