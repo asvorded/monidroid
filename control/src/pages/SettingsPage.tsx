@@ -16,7 +16,6 @@ const SettingsPage = () => {
     <>
       <Text variant="header-2">Settings</Text>
       <div className="flex flex-col mt-4 gap-3">
-        {/* TODO: theme and notifications */}
           <Switch className="items-center" checked={notif} onUpdate={(c) => {
             service.setOptions({ notifications: c });
             setNotif(c);
