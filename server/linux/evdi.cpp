@@ -16,6 +16,7 @@
 #include "monidroid.h"
 #include "monidroid/debug.h"
 #include "monidroid/logger.h"
+#include "monidroid/protocol.h"
 
 using namespace Monidroid;
 
@@ -269,6 +270,18 @@ MonitorMode monitorRequestMode(const Monitor &self, bool cached) {
 void monitorSendInput(const Monitor &self, int dx, int dy) {
     libevdev_uinput_write_event(self->uinput, EV_REL, REL_X, dx);
     libevdev_uinput_write_event(self->uinput, EV_REL, REL_Y, dy);
+    libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
+}
+
+void monitorSendInput(const Monitor &self, u8 buttonFlags) {
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_LEFT, buttonFlags & INPUT_L_BUTTON);
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_RIGHT, buttonFlags & INPUT_R_BUTTON);
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_MIDDLE, buttonFlags & INPUT_M_BUTTON);
+    libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
+}
+
+void monitorSendInput(const Monitor &self, int scroll) {
+    libevdev_uinput_write_event(self->uinput, EV_REL, REL_WHEEL, scroll);
     libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
 }
 

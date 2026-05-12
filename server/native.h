@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+#include "monidroid.h"
 #include "monidroid/edid.h"
 
 using namespace Monidroid;
@@ -52,7 +53,7 @@ MonitorMode monitorRequestMode(const Monitor& monitor, bool cached);
 
 void monitorSendInput(const Monitor& self, int dx, int dy);
 
-void monitorSendInput(const Monitor& self, char buttonFlags);
+void monitorSendInput(const Monitor& self, u8 buttonFlags);
 
 void monitorSendInput(const Monitor& self, int scroll);
 

@@ -1,8 +1,9 @@
 #pragma once
 
+#include "monidroid.h"
+
 namespace Monidroid {
 
-    // New protocol
     inline namespace V2 {
         inline constexpr auto PROTOCOL_PORT        = 14770;
         inline constexpr auto ADB_PORT             = 14767;
@@ -46,6 +47,10 @@ namespace Monidroid {
 
             Touch        = 5,
         };
+
+        inline constexpr u8 INPUT_L_BUTTON = 1 << 0;
+        inline constexpr u8 INPUT_R_BUTTON = 1 << 1;
+        inline constexpr u8 INPUT_M_BUTTON = 1 << 2;
         
         // Server side        
         inline constexpr char SV_STREAM_WORD[PROTOCOL_WORD_LEN + 1]       = "SSTRM";
