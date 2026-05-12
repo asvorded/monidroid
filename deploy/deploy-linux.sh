@@ -21,7 +21,6 @@ DEPLOY_SRC_DIR=${ROOT}/deploy;
 
 DEPLOY_OUT_DIR=${ROOT}/deploy;
 
-# CMAKE_SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages;
 SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.server/data;
 CONTROL_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.control/data;
 
@@ -35,9 +34,9 @@ rm -rv ${DEPLOY_OUT_DIR}/packages/*/data/*;
 # Build and copy server
 message "Building the server...";
 
-cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B build --install-prefix ${SERVER_INSTALL_PREFIX} &&
-cmake --build build --target monidroid-server &&
-cmake --install build &&
+cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B ${DEPLOY_SRC_DIR}/build --install-prefix ${SERVER_INSTALL_PREFIX} &&
+cmake --build ${DEPLOY_SRC_DIR}/build --target monidroid-server &&
+cmake --install ${DEPLOY_SRC_DIR}/build &&
 
 # Copy .service file
 cp ${DEPLOY_SRC_DIR}/linux/monidroid.service ${SERVER_INSTALL_PREFIX} &&

@@ -22,6 +22,14 @@ target_compile_definitions(${SERVER_TARGET} PRIVATE
     MD_SERVER_VERSION="${SERVER_VERSION}"
 )
 
+# Setup for bundling
+if(LINUX)
+    set_target_properties(${SERVER_TARGET} PROPERTIES
+        INSTALL_RPATH "$ORIGIN"
+        INSTALL_RPATH_USE_LINK_PATH TRUE
+    )
+endif()
+
 # LibJPEG-Turbo
 if(LINUX)
     set(libjpeg-turbo_DIR /opt/libjpeg-turbo/lib64/cmake/libjpeg-turbo CACHE STRING "")
@@ -152,6 +160,8 @@ install(TARGETS ${SERVER_TARGET}
 install(IMPORTED_RUNTIME_ARTIFACTS
     Boost::process
     Boost::program_options
+    Boost::filesystem
+    libjpeg-turbo::turbojpeg
     DESTINATION .
 )
 endif()
