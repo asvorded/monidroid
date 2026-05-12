@@ -146,7 +146,12 @@ endif()
 if(MD_DEPLOY)
 # Custom installation
 install(TARGETS ${SERVER_TARGET}
-    RUNTIME_DEPENDENCIES
-    DESTINATION "com.monidroid.server/data"
+    DESTINATION .
+)
+
+install(IMPORTED_RUNTIME_ARTIFACTS
+    Boost::process
+    Boost::program_options
+    DESTINATION .
 )
 endif()

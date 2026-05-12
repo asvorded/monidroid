@@ -1,5 +1,12 @@
 #!/usr/bin/bash
 
+function message()
+{
+    echo;
+    echo $1;
+    echo;
+}
+
 if ! [ -d "deploy" ]; then
     echo "Must be run from the project root";
     exit -1;
@@ -14,14 +21,21 @@ DEPLOY_SRC_DIR=${ROOT}/deploy;
 
 DEPLOY_OUT_DIR=${ROOT}/deploy;
 
-CMAKE_SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages;
+# CMAKE_SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages;
 SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.server/data;
 CONTROL_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.control/data;
 
 DEPLOY_NAME=monidroid-linux-${MD_VERSION}-setup;
 
+# Clean files
+message "Cleaning files before deploy...";
+
+rm -rv ${DEPLOY_OUT_DIR}/packages/*/data/*;
+
 # Build and copy server
-cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B build --install-prefix ${CMAKE_SERVER_INSTALL_PREFIX} &&
+message "Building the server...";
+
+cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B build --install-prefix ${SERVER_INSTALL_PREFIX} &&
 cmake --build build --target monidroid-server &&
 cmake --install build &&
 
@@ -29,12 +43,16 @@ cmake --install build &&
 cp ${DEPLOY_SRC_DIR}/linux/monidroid.service ${SERVER_INSTALL_PREFIX} &&
 
 # Build and copy control panel
+message "Building the control panel...";
+
 cd control &&
 npm install &&
 npm run app-build &&
 mkdir ${CONTROL_INSTALL_PREFIX}; # If directory created, ignore
-cp -r out/monidroid-control-linux-x64 ${CONTROL_INSTALL_PREFIX} &&
+cp -r out/monidroid-control-linux-x64/* ${CONTROL_INSTALL_PREFIX} &&
 cd .. &&
 
 # Make installer executable
+message "Making an installer...";
+
 binarycreator -c ${DEPLOY_SRC_DIR}/config/config.xml -p ${DEPLOY_SRC_DIR}/packages ${DEPLOY_OUT_DIR}/${DEPLOY_NAME};
