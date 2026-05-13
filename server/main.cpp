@@ -184,8 +184,8 @@ int main(int argc, char *argv[]) try {
     gst_init(&argc, &argv);
 
     // Health checks
-    // checkElevation();
-    // videoHealthCheck();
+    checkElevation();
+    videoHealthCheck();
 
     g_app = std::make_unique<MDApp>();
 

@@ -118,7 +118,7 @@ void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
             m_notifier.onClientConnected(ctx);
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        // std::this_thread::sleep_for(std::chrono::seconds(10));
         
         // 2. Connect monitor
         result = client->connectMonitor(m_adapter);
