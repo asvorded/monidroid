@@ -274,9 +274,12 @@ void monitorSendInput(const Monitor &self, int dx, int dy) {
 }
 
 void monitorSendInput(const Monitor &self, u8 buttonFlags) {
-    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_LEFT, buttonFlags & INPUT_L_BUTTON);
-    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_RIGHT, buttonFlags & INPUT_R_BUTTON);
-    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_MIDDLE, buttonFlags & INPUT_M_BUTTON);
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_LEFT,
+        (unsigned int)(bool)(buttonFlags & INPUT_L_BUTTON));
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_RIGHT,
+        (unsigned int)(bool)(buttonFlags & INPUT_R_BUTTON));
+    libevdev_uinput_write_event(self->uinput, EV_KEY, BTN_MIDDLE,
+        (unsigned int)(bool)(buttonFlags & INPUT_M_BUTTON));
     libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
 }
 

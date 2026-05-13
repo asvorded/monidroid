@@ -27,6 +27,7 @@ if(LINUX)
     set_target_properties(${SERVER_TARGET} PROPERTIES
         INSTALL_RPATH "$ORIGIN"
         INSTALL_RPATH_USE_LINK_PATH TRUE
+        BUILD_WITH_INSTALL_RPATH TRUE
     )
 endif()
 

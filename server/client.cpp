@@ -201,7 +201,7 @@ void Client::receiveMain() {
 }
 
 void Client::handleInput() {
-    char buf[256];
+    u8 buf[256];
     // Read type
     asio::read(m_socket, asio::buffer(buf, 1));
     switch ((InputType)buf[0]) {
@@ -213,8 +213,14 @@ void Client::handleInput() {
         break;
     }
     case InputType::MouseButtons:
+        // <flags(byte)> (total 1 byte)
+        asio::read(m_socket, asio::buffer(buf, 1));
+        monitorSendInput(m_monitor, buf[0]);
         break;
     case InputType::MouseScroll:
+        // <delta(int)> (total 4 bytes)
+        asio::read(m_socket, asio::buffer(buf, 1));
+        monitorSendInput(m_monitor, *reinterpret_cast<int*>(buf));
         break;
     default:
         throw new std::runtime_error("[TODO] Input type is not implemented");
