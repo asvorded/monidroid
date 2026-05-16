@@ -1,22 +1,28 @@
 function Component() {
-
+    if (systemInfo.kernelType === "winnt") {
+        component.setValue("Dependencies", "com.monidroid.driver");
+    }
 }
 
-Component.prototype.createOperations
-    = systemInfo.kernelType === "linux" ? setupSystemd
-    : systemInfo.kernelType === "winnt" ? setupWindowsService
-    : undefined
-
-function setupSystemd() {
-    // Unpace here
+Component.prototype.createOperations = function() {
+    // Unpack files first by installer
     component.createOperations();
 
     // Now install
+
+    if (systemInfo.kernelType === "linux") {
+        setupSystemd();
+    } else if (systemInfo.kernelType === "winnt") {
+        setupWindowsService();
+    }
+}
+
+function setupSystemd() {
     component.addOperation("Replace", "@TargetDir@/monidroid.service", "${TARGET_DIR}", "@TargetDir@");
 
     component.addElevatedOperation(
         "Execute",
-        "cp", "@TargetDir@/monidroid.service", "/etc/systemd/system",
+        "mv", "@TargetDir@/monidroid.service", "/etc/systemd/system",
         "UNDOEXECUTE",
         "rm", "-f", "/etc/systemd/system/monidroid.service"
     );

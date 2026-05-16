@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Package>
     <DisplayName>Graphics adapter driver</DisplayName>
-    <Description>Graphics adapter driver.</Description>
+    <Description>Virtual graphics adapter driver.</Description>
     <Version>0.1.0</Version>
     <ReleaseDate>2026-04-30</ReleaseDate>
     
+    <Default>true</Default>
     <RequiresAdminRights>true</RequiresAdminRights>
-    <ForcedInstallation>true</ForcedInstallation>
-    <Script>script.qs</Script>
+    <Script>driver.qs</Script>
 </Package>

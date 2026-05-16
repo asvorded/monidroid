@@ -14,7 +14,8 @@ DEPLOY_DIR=${PWD}/deploy;
 
 SERVER_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server/data;
 SERVER_AUTOSTART_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server.service/data;
-CONTROL_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control/data;
+DRIVER_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.driver/data;
+CONTROL_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control/data/control;
 
 DEPLOY_NAME=monidroid-linux-${MD_VERSION}-setup;
 
@@ -25,28 +26,42 @@ function message()
     echo;
 }
 
-function setVersion()
-{
-    find ${DEPLOY_DIR} -name "package.xml" | while read -r package; do
-        sed -i -E "s|(<Version>)[^<]*(</Version>)|\1${MD_VERSION}\2|g" ${package}
-        sed -i -E "s|(<ReleaseDate>)[^<]*(</ReleaseDate>)|\1${MD_DEPLOY_DATE}\2|g" ${package}
-    done
-}
-
 # Clean files
 message "Cleaning files before deploy...";
 
-rm -rv ${DEPLOY_DIR}/packages/*/data/*;
+rm -r ${DEPLOY_DIR}/packages/*/data/*;
+
+# Set versions
+message "Setting the version in .xml files...";
+
+find ${DEPLOY_DIR} -name package.xml -o -name config.xml | while read -r package; do
+    sed -i -E "s|(<Version>)[^<]*(</Version>)|\1${MD_VERSION}\2|g" ${package}
+    sed -i -E "s|(<ReleaseDate>)[^<]*(</ReleaseDate>)|\1${MD_DEPLOY_DATE}\2|g" ${package}
+done
 
 # Build and copy server
 message "Building the server...";
 
 cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B ${DEPLOY_DIR}/build --install-prefix ${SERVER_INSTALL_PREFIX} &&
-cmake --build ${DEPLOY_DIR}/build --target monidroid-server &&
+cmake --build ${DEPLOY_DIR}/build --target monidroid-server && 
 cmake --install ${DEPLOY_DIR}/build &&
 
 # Copy .service file
 cp ${DEPLOY_DIR}/linux/monidroid.service ${SERVER_AUTOSTART_INSTALL_PREFIX} &&
+
+# Build libevdi
+message "Building libevdi...";
+
+cd evdi/library &&
+make &&
+make LIBDIR=${DRIVER_INSTALL_PREFIX}/libevdi install
+cd ../..
+
+# Put driver source files
+message "Copying driver source files...";
+
+mkdir -p ${DRIVER_INSTALL_PREFIX}/driver
+cp -r evdi/module/* ${DRIVER_INSTALL_PREFIX}/driver
 
 # Build and copy control panel
 message "Building the control panel...";
@@ -54,7 +69,7 @@ message "Building the control panel...";
 cd control &&
 npm install &&
 npm run app-build &&
-mkdir ${CONTROL_INSTALL_PREFIX}; # If directory created, ignore
+mkdir -p ${CONTROL_INSTALL_PREFIX};
 cp -r out/monidroid-control-linux-x64/* ${CONTROL_INSTALL_PREFIX} &&
 cd .. &&
 

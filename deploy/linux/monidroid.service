@@ -1,10 +1,12 @@
 [Unit]
-Decription=Monidroid server
+Description=Monidroid server
 
 [Service]
 ExecStart=${TARGET_DIR}/monidroid-server
 RestartKillSignal=SIGINT
 KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
