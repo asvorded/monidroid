@@ -5,5 +5,6 @@
     <Title>Monidroid</Title>
     <Publisher>asvorded</Publisher>
     <StartMenuDir>Monidroid</StartMenuDir>
-    <TargetDir>@HomeDir@/Monidroid</TargetDir>
+    <TargetDir>@ApplicationsDir@/monidroid</TargetDir>
+    <ControlScript>config.qs</ControlScript>
 </Installer>

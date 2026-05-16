@@ -1,5 +1,23 @@
 #!/usr/bin/bash
 
+if [ ! -d "deploy" ]; then
+    echo "Must be run from the project root";
+    exit -1;
+fi
+
+# Config
+MD_VERSION=0.1.0;
+# MD_DEPLOY_DATE=$(date +"%Y-%m-%d");
+MD_DEPLOY_DATE="2026-04-30";
+
+DEPLOY_DIR=${PWD}/deploy;
+
+SERVER_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server/data;
+SERVER_AUTOSTART_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server.service/data;
+CONTROL_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control/data;
+
+DEPLOY_NAME=monidroid-linux-${MD_VERSION}-setup;
+
 function message()
 {
     echo;
@@ -7,39 +25,28 @@ function message()
     echo;
 }
 
-if ! [ -d "deploy" ]; then
-    echo "Must be run from the project root";
-    exit -1;
-fi
-
-# Config
-MD_VERSION=0.1.0;
-
-ROOT=$PWD;
-
-DEPLOY_SRC_DIR=${ROOT}/deploy;
-
-DEPLOY_OUT_DIR=${ROOT}/deploy;
-
-SERVER_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.server/data;
-CONTROL_INSTALL_PREFIX=${DEPLOY_OUT_DIR}/packages/com.monidroid.control/data;
-
-DEPLOY_NAME=monidroid-linux-${MD_VERSION}-setup;
+function setVersion()
+{
+    find ${DEPLOY_DIR} -name "package.xml" | while read -r package; do
+        sed -i -E "s|(<Version>)[^<]*(</Version>)|\1${MD_VERSION}\2|g" ${package}
+        sed -i -E "s|(<ReleaseDate>)[^<]*(</ReleaseDate>)|\1${MD_DEPLOY_DATE}\2|g" ${package}
+    done
+}
 
 # Clean files
 message "Cleaning files before deploy...";
 
-rm -rv ${DEPLOY_OUT_DIR}/packages/*/data/*;
+rm -rv ${DEPLOY_DIR}/packages/*/data/*;
 
 # Build and copy server
 message "Building the server...";
 
-cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B ${DEPLOY_SRC_DIR}/build --install-prefix ${SERVER_INSTALL_PREFIX} &&
-cmake --build ${DEPLOY_SRC_DIR}/build --target monidroid-server &&
-cmake --install ${DEPLOY_SRC_DIR}/build &&
+cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -B ${DEPLOY_DIR}/build --install-prefix ${SERVER_INSTALL_PREFIX} &&
+cmake --build ${DEPLOY_DIR}/build --target monidroid-server &&
+cmake --install ${DEPLOY_DIR}/build &&
 
 # Copy .service file
-cp ${DEPLOY_SRC_DIR}/linux/monidroid.service ${SERVER_INSTALL_PREFIX} &&
+cp ${DEPLOY_DIR}/linux/monidroid.service ${SERVER_AUTOSTART_INSTALL_PREFIX} &&
 
 # Build and copy control panel
 message "Building the control panel...";
@@ -54,4 +61,4 @@ cd .. &&
 # Make installer executable
 message "Making an installer...";
 
-binarycreator -c ${DEPLOY_SRC_DIR}/config/config.xml -p ${DEPLOY_SRC_DIR}/packages ${DEPLOY_OUT_DIR}/${DEPLOY_NAME};
+binarycreator -c ${DEPLOY_DIR}/config/config.xml -p ${DEPLOY_DIR}/packages ${DEPLOY_DIR}/${DEPLOY_NAME};

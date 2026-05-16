@@ -5,7 +5,8 @@
     <Version>0.1.0</Version>
     <ReleaseDate>2026-04-30</ReleaseDate>
     
+    <Default>true</Default>
+    <SortingPriority>10</SortingPriority>
     <RequiresAdminRights>true</RequiresAdminRights>
     <ForcedInstallation>true</ForcedInstallation>
-    <Script>script.qs</Script>
 </Package>

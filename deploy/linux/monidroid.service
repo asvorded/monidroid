@@ -2,6 +2,9 @@
 Decription=Monidroid server
 
 [Service]
-ExecStart=/opt/monidroid/monidroid-server
+ExecStart=${TARGET_DIR}/monidroid-server
 RestartKillSignal=SIGINT
 KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
