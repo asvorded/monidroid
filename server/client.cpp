@@ -219,7 +219,7 @@ void Client::handleInput() {
         break;
     case InputType::MouseScroll:
         // <delta(int)> (total 4 bytes)
-        asio::read(m_socket, asio::buffer(buf, 1));
+        asio::read(m_socket, asio::buffer(buf, 4));
         monitorSendInput(m_monitor, *reinterpret_cast<int*>(buf));
         break;
     default:
