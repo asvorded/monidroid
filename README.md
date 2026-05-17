@@ -2,20 +2,20 @@
 
 Turn your mobile device into second monitor on any platform!
 
-Features:
+ Features:
 - Duplicating and extending desktop with mobile devices
 - Connection via Wi-Fi and USB
 - Touch input
 - Run on system startup support
 
-*Tested platforms (this list will be updated):*
+✅ *Tested platforms (this list will be updated):*
 - Windows 10 22H2
 - Linux:
     - Kubuntu 25.10 (KDE on Wayland)
     - CachyOS (GNOME and KDE on Wayland)
     - Fedora 44 (GNOME on Wayland)
 
-## Building on Linux
+## 🔨 Building on Linux
 
 ### Installing server dependencies
 
@@ -27,7 +27,7 @@ sudo apt update && sudo apt -y upgrade
 sudo apt install cmake build-essential pkg-config libgstreamer1.0-dev libgstrtspserver-1.0-dev libboost-dev nlohmann-json3-dev libusb-1.0-0-dev libevdev-dev
 
 # Ubuntu version of libjpeg-turbo is too old
-curl -O https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.3/libjpeg-turbo-official_3.1.3_amd64.deb && apt install libjpeg-turbo-official_3.1.3_amd64.deb
+curl -LO https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.3/libjpeg-turbo-official_3.1.3_amd64.deb && sudo apt install ./libjpeg-turbo-official_3.1.3_amd64.deb
 ```
 
 Arch-based:
@@ -63,7 +63,7 @@ chmod a+x ./deploy/deploy-linux.sh
 ./deploy/deploy-linux.sh
 ```
 
-## Building on Windows
+## 🔨 Building on Windows
 
 ### Installing pkg-config
 
@@ -89,7 +89,7 @@ Then, configure deployment in `MonidroidDriver` project properties:
 1. Tick "Remove before installation"
 1. Set `Root\MonidroidDriver`
 
-## Troubleshooting
+## 🛟 Troubleshooting
 
 ### Installer fails on dkms install with exit code 3
 
