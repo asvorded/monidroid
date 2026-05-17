@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Monidroid
+Categories=Utility;
+Comment=Monidroid control panel
+Exec=${TARGET_DIR}/control/monidroid-control --no-sandbox
+Icon=${TARGET_DIR}/logo.png
+StartupNotify=true
+Terminal=false

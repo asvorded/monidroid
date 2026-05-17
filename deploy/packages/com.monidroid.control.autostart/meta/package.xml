@@ -6,4 +6,6 @@
     <ReleaseDate>2026-04-30</ReleaseDate>
 
     <Dependencies>com.monidroid.control</Dependencies>
+    <Default>true</Default>
+    <Script>autostart.qs</Script>
 </Package>

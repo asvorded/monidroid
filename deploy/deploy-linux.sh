@@ -17,7 +17,8 @@ DEPLOY_DIR=${PWD}/deploy;
 SERVER_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server/data;
 SERVER_AUTOSTART_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.server.service/data;
 DRIVER_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.driver/data;
-CONTROL_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control/data/control;
+CONTROL_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control/data;
+CONTROL_AUTOSTART_INSTALL_PREFIX=${DEPLOY_DIR}/packages/com.monidroid.control.autostart/data;
 
 DEPLOY_NAME=monidroid-linux-${MD_VERSION}-setup;
 
@@ -73,9 +74,12 @@ message "Building the control panel...";
 cd control;
 npm install;
 npm run app-build;
-mkdir -p ${CONTROL_INSTALL_PREFIX};
-cp -r out/monidroid-control-linux-x64/* ${CONTROL_INSTALL_PREFIX};
+mkdir -p ${CONTROL_INSTALL_PREFIX}/control;
+cp -r out/monidroid-control-linux-x64/* ${CONTROL_INSTALL_PREFIX}/control;
 cd ..;
+
+cp ${DEPLOY_DIR}/linux/monidroid.desktop ${CONTROL_INSTALL_PREFIX};
+cp control/static/logo.png ${CONTROL_INSTALL_PREFIX};
 
 # Make installer executable
 message "Making an installer...";

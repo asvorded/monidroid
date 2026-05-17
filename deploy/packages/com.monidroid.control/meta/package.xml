@@ -6,4 +6,6 @@
     <ReleaseDate>2026-04-30</ReleaseDate>
 
     <Dependencies>com.monidroid.server</Dependencies>
+    <Default>true</Default>
+    <Script>control.qs</Script>
 </Package>

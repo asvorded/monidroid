@@ -2,13 +2,13 @@
 
 Turn your mobile device into second monitor on any platform!
 
- Features:
+### ✨ Features:
 - Duplicating and extending desktop with mobile devices
 - Connection via Wi-Fi and USB
 - Touch input
 - Run on system startup support
 
-✅ *Tested platforms (this list will be updated):*
+### ✅ Tested platforms (this list will be updated):
 - Windows 10 22H2
 - Linux:
     - Kubuntu 25.10 (KDE on Wayland)
@@ -91,9 +91,49 @@ Then, configure deployment in `MonidroidDriver` project properties:
 
 ## 🛟 Troubleshooting
 
-### Installer fails on dkms install with exit code 3
+### Error during installation process (com.monidroid.driver): Execution failed (Unexpected exit code: 3): "dkms install /opt/monidroid/driver"
 
-Retry installation. If the error keeps appearing, please open an issue.
+Retry installation. If the error persists, please open an issue.
+
+### Error during installation process (com.monidroid.driver): Execution failed (Unexpected exit code: 21): "dkms install /opt/monidroid/driver"
+
+This error occurs during driver installation if kernel headers and build tools are not installed since installer-provided graphics driver must be built on the target system.
+
+First, update your system.
+
+Ubuntu:
+``` bash
+sudo apt update && sudo apt -y upgrade
+```
+
+Fedora:
+``` bash
+sudo dnf upgrade --refresh
+```
+
+Arch-based:
+``` bash
+sudo pacman -Syu
+```
+
+If the error persists, install kernel headers and build tools by the following commands:
+
+Ubuntu:
+``` bash
+sudo apt install build-essential linux-headers-$(uname -r)
+```
+
+Fedora:
+``` bash
+sudo dnf install kernel-devel kernel-headers
+```
+
+Arch-based:
+``` bash
+sudo pacman base-devel linux-headers # Choose proper package (e.g. linux-lts-headers) according to your kernel
+```
+
+Then reboot your PC and retry installation.
 
 ### Monitor is not visible in GNOME settings
 
