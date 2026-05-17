@@ -29,17 +29,22 @@ function installCustomEvdi() {
             break;
         }
     }
-
+    
     // 2. Get build dependencies
+    let libPath;
+    console.log("Installing dkms...");
     switch (packageManager) {
     case "apt":
         component.addElevatedOperation("Execute", "apt", "install", "-y", "dkms");
+        libPath = "/usr/lib";
         break;
     case "dnf":
         component.addElevatedOperation("Execute", "dnf", "install", "-y", "dkms");
+        libPath = "/usr/lib64";
         break;
     case "pacman":
         component.addElevatedOperation("Execute", "pacman", "-S", "--noconfirm", "--needed", "dkms");
+        libPath = "/usr/lib";
         break;
     default:
         throw new Error("Unsupported distro");
@@ -49,6 +54,7 @@ function installCustomEvdi() {
     const evdiVersion = "1.14.15";
     const evdiAbi = "1";
 
+    console.log("Building driver with dkms...");
     component.addElevatedOperation(
         "Execute",
         "dkms", "install", "@TargetDir@/driver",
@@ -56,20 +62,21 @@ function installCustomEvdi() {
         "dkms", "remove", "evdi/" + evdiVersion, "--all"
     );
 
+    // Server will be restarting until libevdi becomes available
     component.addElevatedOperation("Copy",
-        "@TargetDir@/libevdi/libevdi.so." + evdiVersion, "/usr/lib"
+        `@TargetDir@/libevdi/libevdi.so.${evdiVersion}`, libPath
     );
     component.addElevatedOperation(
         "Execute",
-        "ln", "-sf", "/usr/lib/libevdi.so." + evdiVersion, "/usr/lib/libevdi.so." + evdiAbi,
+        "ln", "-sf", `${libPath}/libevdi.so.${evdiVersion}`, `${libPath}/libevdi.so.${evdiAbi}`,
         "UNDOEXECUTE",
-        "rm", "/usr/lib/libevdi.so." + evdiAbi
+        "rm", `${libPath}/libevdi.so.${evdiAbi}`
     );
     component.addElevatedOperation(
         "Execute",
-        "ln", "-sf", "/usr/lib/libevdi.so." + evdiAbi, "/usr/lib/libevdi.so",
+        "ln", "-sf", `${libPath}/libevdi.so.${evdiAbi}`, `${libPath}/libevdi.so`,
         "UNDOEXECUTE",
-        "rm", "/usr/lib/libevdi.so"
+        "rm", `${libPath}/libevdi.so`
     );
 }
 

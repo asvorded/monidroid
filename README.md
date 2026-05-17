@@ -7,6 +7,7 @@ Turn your mobile device into second monitor on any platform!
 - Linux (tested on the following distros)
     - Kubuntu 25.10 (KDE on Wayland)
     - CachyOS (GNOME on Wayland)
+    - Fedora 44 (GNOME on Wayland)
 
 ## Building
 
@@ -24,3 +25,9 @@ Linux specific dependencies:
 When building on Windows, please set up `CMAKE_PREFIX_PATH` for some dependencies (like `boost`)
 
 To build Windows driver (**iddcx-driver**), use Visual Studio 2022
+
+## Troubleshooting
+
+### 1. Monitor is not visible in GNOME settings
+
+Enter `sudo bash -c "echo 1 > /sys/devices/evdi/add"` in terminal before connection
