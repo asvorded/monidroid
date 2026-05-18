@@ -141,7 +141,12 @@ void UsbServer::handleAdbDevice(libusb_device *dev) {
 }
 
 void UsbServer::startListening(const std::string &serial) {
+#ifdef _WIN32
+    // Windows is mega trash :)
+    process::popen proc(m_io.get_executor(), m_adbPath.c_str(), {
+#else
     process::popen proc(m_io, m_adbPath, {
+#endif
         "-s", serial,
         "reverse",
         "tcp:" + std::to_string(Monidroid::PROTOCOL_PORT),

@@ -55,10 +55,7 @@ pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
 )
 
 # Boost
-if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH "C:\\Program Files\\boost_1_90_0\\lib64-msvc-14.3\\cmake")
-endif()
-find_package(Boost REQUIRED process program_options)
+find_package(Boost REQUIRED process program_options filesystem)
 
 target_include_directories(${SERVER_TARGET} PRIVATE ${Boost_INCLUDE_DIRS})
 
@@ -75,6 +72,7 @@ target_link_libraries(${SERVER_TARGET}
         PkgConfig::GStreamer
         PkgConfig::libusb
         Boost::process
+        Boost::filesystem
         Boost::program_options
         uWebSockets
         nlohmann_json::nlohmann_json

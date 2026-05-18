@@ -8,7 +8,7 @@ include(CTest)
 
 include(FindPkgConfig)
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework Process)
+find_package(Boost REQUIRED COMPONENTS unit_test_framework process filesystem)
 
 # EDID tests
 add_executable(edid_tests edid.cpp)
@@ -26,14 +26,14 @@ pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
     libusb-1.0
 )
 
-target_include_directories(usb_tests PRIVATE ${Boost_INCLUDE_DIRS})
-
 target_link_libraries(usb_tests
     PRIVATE
         monidroid-common
         PkgConfig::libusb
         Boost::process
+        Boost::filesystem
         Boost::unit_test_framework
 )
 
 add_test(NAME EDIDTests COMMAND edid_tests)
+add_test(NAME USBServerTests COMMAND usb_tests)

@@ -9,6 +9,10 @@ if(CMAKE_BUILD_TYPE STREQUAL Debug)
     add_compile_definitions(DEBUG)
 endif()
 
+if(WIN32)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+endif()
+
 add_subdirectory(common)
 
 add_subdirectory(server)

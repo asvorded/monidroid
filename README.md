@@ -15,9 +15,9 @@ Turn your mobile device into second monitor on any platform!
     - CachyOS (GNOME and KDE on Wayland)
     - Fedora 44 (GNOME on Wayland)
 
-## 🔨 Building on Linux
+## 🔨 Building from source
 
-### Installing server dependencies
+### Installing dependencies on Linux
 
 All needed dependencies can be found in `server/CMakeLists.txt`. Here are the commands for some distros to install them:
 
@@ -49,45 +49,48 @@ cd ../library
 make
 sudo make install
 ```
+
 ### Building contol panel
 
 Requires `node` and `npm`. npm commands in `package.json:`
 - `ui-dev` - start UI dev server
 - `app-dev` - start panel in debug mode (`ui-dev` must be run first)
-- `app-build` - build release of panel
+- `app-build` - build panel release
 
-### Deploying (making an installer)
+### Obtaining adb
+
+`adb` is needed for the USB server and deployment.
+Use official Android SDK Platform Tools or download `adb` manually and add the adb folder to `PATH`.
+
+### Installing dependencies on Windows
+
+The project is set up for using **vcpkg**. If you are using Visual Studio:
+1. Make sure that _vcpkg package manager_ component is installed in Visual Studio Installer
+1. In Visual Studio, open terminal and run `vcpkg integrate install`
+1. _Project -> Configure Cache_
+
+If not, please refer to [the official documentation](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started).
+
+Alternatively, you can manually install every needed package and set `CMAKE_PREFIX_PATH`.
+
+### Building and deploying Windows driver
+
+To build Windows driver (`iddcx-driver`), use Visual Studio 2022.
+
+To deploy Windows driver, you need a virtual machine configured following [this tutorial](https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/provision-a-target-computer).
+Then, configure deployment in `MonidroidDriver` project properties:
+
+1. Go to _Configuration Properties -> Driver Install -> Deployment_
+1. Select configured computer
+1. Tick "_Remove previous driver versions before deployment_"
+1. _Driver Installation Options -> Hardware ID Driver Update_ -> Set `Root\MonidroidDriver`
+
+### Deploying (making an installer) on Linux
 
 ``` bash
 chmod a+x ./deploy/deploy-linux.sh
 ./deploy/deploy-linux.sh
 ```
-
-## 🔨 Building on Windows
-
-### Installing pkg-config
-
-``` cmd
-winget install --id bloodrock.pkg-config-lite
-```
-
-### Installing dependencies
-
-You have two options:
-1. Manually download every package and set up `CMAKE_PREFIX_PATH`
-2. Use `vcpkg`
-
-### Building and deploying driver
-
-To build Windows driver (`iddcx-driver`), use Visual Studio 2022
-
-To deploy Windows driver, you need a virtual machine configured following [this tutorial](https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/provision-a-target-computer).
-Then, configure deployment in `MonidroidDriver` project properties:
-
-1. Go to _Driver -> Driver Install_
-1. Select configured computer
-1. Tick "Remove before installation"
-1. Set `Root\MonidroidDriver`
 
 ## 🛟 Troubleshooting
 
@@ -139,7 +142,7 @@ Then reboot your PC and retry installation.
 
 Run `sudo bash -c "echo 1 > /sys/devices/evdi/add"` in terminal before connection
 
-This is a GNOME bug. We will try to address it by applying another /dev/dri/cardX managenent approach
+This is a GNOME bug. We will try to address it by applying another /dev/dri/cardX managenent approach.
 
 ### Cannot connect on Windows, "failed to connect to ... from ... after 5000ms"
 

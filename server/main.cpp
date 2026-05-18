@@ -167,19 +167,20 @@ int main(int argc, char *argv[]) try {
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
 
-    if (vm.contains("version")) {
+    // variables_map::contains() does not work on Windows with c++20, wtf...
+    if (vm.count("version")) {
         version();
         return 0;
-    } else if (vm.contains("help")) {
+    } else if (vm.count("help")) {
         usage(desc);
         return 0;
     }
 
-    if (vm.contains("terminal")) {
+    if (vm.count("terminal")) {
         Monidroid::DefaultLog("Starting as console application...");
     }
-    g_hideSerials = !vm.contains("show-serials");
-    const bool throwIfUsbFailed = vm.contains("force-usb");
+    g_hideSerials = vm.count("show-serials") == 0;
+    const bool throwIfUsbFailed = vm.count("force-usb") != 0;
 
     gst_init(&argc, &argv);
 

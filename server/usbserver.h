@@ -7,6 +7,7 @@
 #include <memory>
 
 #include <boost/process.hpp>
+#include <boost/filesystem.hpp>
 
 #include <libusb.h>
 
@@ -23,7 +24,13 @@ class UsbServer {
     using ClientsSet = std::set<std::shared_ptr<UsbClientContext>>;
 private:
     static constexpr auto TAG = "USB";
+
+#ifdef _WIN32
+    static constexpr auto ADB_PATH = "adb.exe";
+#else
     static constexpr auto ADB_PATH = "adb";
+#endif
+
     static constexpr timeval POLL_INTERVAL { .tv_sec = 1 };
 
     const bool m_hideSerials;

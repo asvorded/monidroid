@@ -196,7 +196,7 @@ Adapter openAdapter() {
 
 Monitor adapterConnectMonitor(const Adapter& self, const std::string& modelName, const MonitorMode& info) {
     ADAPTER_MONITOR_INFO monitorInfo {
-        .monitorNumberBySocket = INVALID_SOCKET,
+        .monitorNumberBySocket = ~0llu,
         .width = info.width,
         .height = info.height,
         .hertz = info.refreshRate,
@@ -360,7 +360,7 @@ void monitorUnmap(const Monitor& self) {
 void monitorDisconnect(Monitor& self) {
     if (auto adapter = self->adapter.lock()) {
         ADAPTER_MONITOR_INFO monitorInfo = {};
-        monitorInfo.monitorNumberBySocket = INVALID_SOCKET; // TODO
+        monitorInfo.monitorNumberBySocket = ~0llu; // TODO
         monitorInfo.connectorIndex = self->connectorIndex;
         ADAPTER_MONITOR_INFO monitorInfoOut = {};
 

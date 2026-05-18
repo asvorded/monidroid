@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    "pkgconf",
+    "libjpeg-turbo",
+    "gstreamer",
+    "gst-rtsp-server",
+    "libusb",
+    "boost",
+    "nlohmann-json",
+    "libuv"
+  ],
+  "overrides": [
+    { "name": "boost", "version": "1.88.0" }
+  ]
+}
