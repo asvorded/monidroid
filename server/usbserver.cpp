@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include <boost/asio.hpp>
+#include <boost/dll.hpp>
 
 #include "monidroid/protocol.h"
 #include "monidroid/logger.h"
@@ -14,7 +15,10 @@ UsbServer::UsbServer(asio::io_context &ctx, bool hideSerials)
     m_io(ctx)
 {
     if (m_adbPath.empty()) {
-        throw std::runtime_error("ADB executable was not found");
+        m_adbPath = filesystem::absolute(ADB_PATH, dll::program_location().parent_path());
+        if (!filesystem::exists(m_adbPath)) {
+            throw std::runtime_error("ADB executable was not found");
+        }
     }
 
     libusb_init_context(nullptr, nullptr, 0);

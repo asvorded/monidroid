@@ -27,7 +27,7 @@ private:
     static constexpr timeval POLL_INTERVAL { .tv_sec = 1 };
 
     const bool m_hideSerials;
-    const filesystem::path m_adbPath;
+    filesystem::path m_adbPath;
 
     asio::io_context &m_io;
     std::thread m_thread;

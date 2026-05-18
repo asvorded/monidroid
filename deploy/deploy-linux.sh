@@ -32,7 +32,7 @@ function message()
 # Clean files
 message "Cleaning files before deploy...";
 
-rm -r ${DEPLOY_DIR}/packages/*/data/*;
+rm -r ${DEPLOY_DIR}/packages/*/data/* || true;
 
 # Set versions
 message "Setting the version in .xml files...";

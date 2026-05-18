@@ -1,8 +1,8 @@
 function Component() {
-    if (systemInfo.kernelType === "linux") {
-        const desc = "WARNING: to install the driver you must \
-1) remove any \"evdi-dkms\" package from your system, \
-2) install header sources for your current kernel.";
+    if (systemInfo.kernelType === "winnt") {
+        component.setValue("ForcedInstallation", "true");
+    } else if (systemInfo.kernelType === "linux") {
+        const desc = "WARNING: this driver is incompatible with \"evdi-dkms\" package.";
 
         component.setValue("Description", desc);
     }

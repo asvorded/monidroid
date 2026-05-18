@@ -1,7 +1,5 @@
 function Component() {
-    if (systemInfo.kernelType === "winnt") {
-        component.setValue("Dependencies", "com.monidroid.driver");
-    }
+    
 }
 
 Component.prototype.createOperations = function() {

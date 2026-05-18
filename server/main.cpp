@@ -29,7 +29,7 @@ std::unique_ptr<EchoServer> g_echoServer;
 std::unique_ptr<UsbServer> g_usbServer;
 
 bool g_hideSerials;
-bool g_throwIfUsbFailed;
+bool g_usbAvaliable;
 
 static void usage(const po::options_description &desc) {
     std::cout <<
@@ -55,7 +55,7 @@ static void startServers() {
         g_echoServer = std::make_unique<EchoServer>(context);
     }
     if (!g_usbServer || !g_usbServer->running()) {
-        if (!g_throwIfUsbFailed) {
+        if (g_usbAvaliable) {
             g_usbServer = std::make_unique<UsbServer>(context, g_hideSerials);
         }
     }
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) try {
         Monidroid::DefaultLog("Starting as console application...");
     }
     g_hideSerials = !vm.contains("show-serials");
-    g_throwIfUsbFailed = vm.contains("force-usb");
+    const bool throwIfUsbFailed = vm.contains("force-usb");
 
     gst_init(&argc, &argv);
 
@@ -205,7 +205,7 @@ int main(int argc, char *argv[]) try {
     g_echoServer = std::make_unique<EchoServer>(context);
 
     // Start USB server
-    if (g_throwIfUsbFailed) {
+    if (throwIfUsbFailed) {
         g_usbServer = std::make_unique<UsbServer>(context, g_hideSerials);
     } else {
         try {
@@ -215,6 +215,7 @@ int main(int argc, char *argv[]) try {
             Monidroid::DefaultLog("USB server has failed to start, server will not support USB connections");
         }
     }
+    g_usbAvaliable = (bool)g_usbServer;
 
     // Start control server
     setupControl(g_app.get());
