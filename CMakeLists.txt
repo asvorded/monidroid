@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(VCPKG_TARGET_TRIPLET x64-win-cpp20)
+
 project(monidroid)
 
 set(CMAKE_CXX_STANDARD 20)

@@ -9,6 +9,9 @@ x64/
 [Rr]elease/
 *.user
 
+# vcpkg
+vcpkg_installed/
+
 # IDE workspace settings
 .vscode/
 .idea/

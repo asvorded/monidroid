@@ -69,13 +69,16 @@ The project is set up for using **vcpkg**. If you are using Visual Studio:
 1. In Visual Studio, open terminal and run `vcpkg integrate install`
 1. _Project -> Configure Cache_
 
-If not, please refer to [the official documentation](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started).
+If not, configure CMake with vcpkg toolchain (`-DCMAKE_TOOLCHAIN_FILE=$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`)
+([the official documentation](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started)).
 
 Alternatively, you can manually install every needed package and set `CMAKE_PREFIX_PATH`.
 
 ### Building and deploying Windows driver
 
-To build Windows driver (`iddcx-driver`), use Visual Studio 2022.
+To build Windows driver (`iddcx-driver`), use Visual Studio 2022:
+1. Install Windows Driver Kit
+1. Install _Windows Driver Kit_ component in Visual Studio Installer
 
 To deploy Windows driver, you need a virtual machine configured following [this tutorial](https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/provision-a-target-computer).
 Then, configure deployment in `MonidroidDriver` project properties:
@@ -85,9 +88,10 @@ Then, configure deployment in `MonidroidDriver` project properties:
 1. Tick "_Remove previous driver versions before deployment_"
 1. _Driver Installation Options -> Hardware ID Driver Update_ -> Set `Root\MonidroidDriver`
 
-### Deploying (making an installer) on Linux
+### Making an installer on Linux
 
 ``` bash
+# From project root
 chmod a+x ./deploy/deploy-linux.sh
 ./deploy/deploy-linux.sh
 ```

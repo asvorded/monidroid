@@ -16,5 +16,8 @@
       "baseline": "48a0cef9ea67606c94f149647470c956bb78050a",
       "packages": [ "boost*", "boost-*" ]
     }
+  ],
+  "overlay-triplets": [
+    "cmake/triplets"
   ]
 }
