@@ -37,3 +37,18 @@ target_link_libraries(usb_tests
 
 add_test(NAME EDIDTests COMMAND edid_tests)
 add_test(NAME USBServerTests COMMAND usb_tests)
+
+if(WIN32)
+    add_executable(win_input_tests wininput.cpp)
+
+    target_compile_definitions(win_input_tests PRIVATE MD_SERVICE_LOG="${CMAKE_SOURCE_DIR}/servicelog.txt")
+
+    target_link_libraries(win_input_tests
+        PRIVATE
+            monidroid-common
+            monidroid-win32
+            Boost::unit_test_framework
+    )
+
+    add_test(NAME WindowsInputTests COMMAND win_input_tests)
+endif()

@@ -7,6 +7,7 @@
 #include <dxgi1_5.h>
 
 #include "iddcx.h"
+#include "monidroid/protocol.h"
 #include "monidroid/logger.h"
 
 using namespace Microsoft::WRL;
@@ -333,6 +334,53 @@ FrameStatus monitorRequestFrame(const Monitor& self) {
 MonitorMode monitorRequestMode(const Monitor& self, bool cached) {
     // TODO: make non-cached
     return self->currentMode;
+}
+
+void monitorSendInput(const Monitor& self, int dx, int dy) {
+    INPUT input {
+        .type = INPUT_MOUSE,
+        .mi {
+            .dx = dx,
+            .dy = dy,
+            .mouseData = 0,
+            .dwFlags = MOUSEEVENTF_MOVE,
+        },
+    };
+    UINT r = SendInput(1, &input, sizeof(INPUT));
+#ifdef DEBUG
+    if (r == 0) {
+        Monidroid::TaggedLog(self ? self->modelName : "Debug", "SendInput() failed, error code {}", GetLastError());
+    }
+#endif
+}
+
+void monitorSendInput(const Monitor& self, u8 buttonFlags) {
+    INPUT input { .type = INPUT_MOUSE };
+    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_L_BUTTON ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_R_BUTTON ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
+    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_M_BUTTON ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP;
+    UINT r = SendInput(1, &input, sizeof(INPUT));
+#ifdef DEBUG
+    if (r == 0) {
+        Monidroid::TaggedLog(self->modelName, "SendInput() failed, error code {}", GetLastError());
+    }
+#endif
+}
+
+void monitorSendInput(const Monitor& self, int scroll) {
+    INPUT input {
+        .type = INPUT_MOUSE,
+        .mi {
+            .mouseData = static_cast<DWORD>(scroll),
+            .dwFlags = MOUSEEVENTF_WHEEL,
+        },
+    };
+    UINT r = SendInput(1, &input, sizeof(INPUT));
+#ifdef DEBUG
+    if (r == 0) {
+        Monidroid::TaggedLog(self->modelName, "SendInput() failed, error code {}", GetLastError());
+    }
+#endif
 }
 
 void monitorMapCurrent(const Monitor& self, FrameMapInfo& mapInfo) {

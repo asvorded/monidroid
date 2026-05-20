@@ -177,6 +177,9 @@ int main(int argc, char *argv[]) try {
 
     if (vm.count("terminal")) {
         Monidroid::DefaultLog("Starting as console application...");
+#ifdef _WIN32
+        ::system("chcp 1251 > nul");
+#endif
     }
     g_hideSerials = !vm.contains("show-serials");
     const bool throwIfUsbFailed = vm.contains("force-usb");
