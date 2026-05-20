@@ -80,7 +80,7 @@ target_link_libraries(${SERVER_TARGET}
 
 if(LINUX)
     #
-    # TARGET (default): Linux library
+    # TARGET: Linux library
     #
     add_library(monidroid-linux)
 
@@ -117,8 +117,11 @@ if(LINUX)
             monidroid-linux
     )
 elseif(WIN32)
+    set(SERVICE_TARGET mdsrv)
+    set(TERMINATOR_TARGET mdterm)
+
     #
-    # TARGET (default): Windows library
+    # TARGET: Windows library
     #
     add_library(monidroid-win32)
 
@@ -148,6 +151,29 @@ elseif(WIN32)
         PRIVATE
             monidroid-win32
     )
+
+    #
+    # TARGET: Windows service stub
+    #
+    add_executable(${SERVICE_TARGET} win32/service.cpp)
+
+    target_compile_definitions(${SERVICE_TARGET} PRIVATE
+        MD_SERVER_EXE_NAME="${SERVER_TARGET}.exe"
+        MD_TERMINATOR_EXE_NAME="${TERMINATOR_TARGET}.exe"
+        MD_SERVICE_NAME="MonidroidService"
+    )
+
+    target_link_libraries(${SERVICE_TARGET}
+        PRIVATE
+            monidroid-common
+            advapi32
+            pathcch
+    )
+
+    #
+    # TARGET: Windows service terminator
+    #
+    add_executable(${TERMINATOR_TARGET} win32/terminator.cpp)
 endif()
 
 if(MD_DEPLOY)
