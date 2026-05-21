@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 int wmain(int argc, WCHAR* argv[]) {
-    if (argc < 2) return -1;
+    if (argc != 2) return -1;
 
     DWORD targetPid = _wtoi(argv[1]);
 
@@ -14,7 +14,7 @@ int wmain(int argc, WCHAR* argv[]) {
     }
 
     SetConsoleCtrlHandler(NULL, TRUE);
-    GenerateConsoleCtrlEvent(CTRL_C_EVENT, targetPid);
+    GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
     FreeConsole();
 
     return 0;

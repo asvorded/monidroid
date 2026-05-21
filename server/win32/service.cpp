@@ -1,3 +1,6 @@
+// https://github.com/LizardByte/Sunshine/blob/master/tools/sunshinesvc.cpp
+// Thanks :)
+
 #define UNICODE
 #define _UNICODE
 
@@ -9,10 +12,12 @@
 
 struct ProcInfo {
     HANDLE serverToken = NULL;
+    HANDLE hOut = NULL;
     PROCESS_INFORMATION procInfo { };
 
     ~ProcInfo() {
         if (serverToken) CloseHandle(serverToken);
+        if (hOut) CloseHandle(hOut);
         if (procInfo.hProcess) CloseHandle(procInfo.hProcess);
         if (procInfo.hThread) CloseHandle(procInfo.hThread);
     }
@@ -20,7 +25,7 @@ struct ProcInfo {
 
 constexpr auto SERVICE_NAME = TEXT(MD_SERVICE_NAME);
 
-WCHAR exe[MAX_PATH] { };
+WCHAR logfile[MAX_PATH] = { '\0' };
 
 SERVICE_STATUS          g_svcStatus;
 SERVICE_STATUS_HANDLE   g_svcStatusHandle = NULL;
@@ -33,21 +38,16 @@ void ReportSvcStatus(DWORD, DWORD, DWORD);
 void SvcReportEvent(LPTSTR);
 
 template <size_t Size>
-static void GetExePath(WCHAR (&str)[Size], const WCHAR* exeName) {
+static void JoinMdPath(WCHAR (&str)[Size], const WCHAR* path) {
     GetModuleFileNameW(nullptr, str, Size);
     PathCchRemoveFileSpec(str, Size);
     wcscat_s(str, L"\\");
-    wcscat_s(str, exeName);
+    wcscat_s(str, path);
 }
 
 int wmain(int argc, WCHAR *argv[]) {
-    if (argc > 2) {
-        return -1;
-    }
-
-    GetExePath(exe, TEXT(MD_SERVER_EXE_NAME));
     if (argc == 2) {
-        (void)_wfreopen(argv[1], L"w", stdout);
+        wcscpy_s(logfile, argv[1]);
     }
 
     SERVICE_TABLE_ENTRY DispatchTable[] =
@@ -80,26 +80,52 @@ DWORD LaunchServerInSession(DWORD sessionId, ProcInfo *procInfo) {
         return GetLastError();
     }
 
+    WCHAR log[MAX_PATH] { '\0' };
+    if (logfile[0] != '\0') {
+        wcscpy_s(log, logfile);
+    } else {
+        JoinMdPath(log, TEXT(MD_SERVER_EXE_NAME) L".log");
+    }
+    SECURITY_ATTRIBUTES sa {
+        .nLength = sizeof(sa),
+        .lpSecurityDescriptor = nullptr,
+        .bInheritHandle = TRUE
+    };
+    HANDLE hOut = CreateFile(log,
+        GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        &sa,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+    if (hOut == INVALID_HANDLE_VALUE) {
+        CloseHandle(serverToken);
+        return GetLastError();
+    }
+
     STARTUPINFO startup {
         .cb = sizeof(startup),
         .lpDesktop = (LPTSTR)TEXT("Winsta0\\Default"),
         .dwFlags = STARTF_USESTDHANDLES,
         .hStdInput = GetStdHandle(STD_INPUT_HANDLE),
-        .hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE),
-        .hStdError = GetStdHandle(STD_ERROR_HANDLE),
+        .hStdOutput = hOut,
+        .hStdError = hOut,
     };
 
     TCHAR cmd[MAX_PATH];
-    wcscpy_s(cmd, exe);
+    JoinMdPath(cmd, TEXT(MD_SERVER_EXE_NAME));
 
     if (!CreateProcessAsUser(serverToken, nullptr, cmd, nullptr, nullptr,
         TRUE, NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
         nullptr, nullptr, &startup, &procInfo->procInfo)) {
+        CloseHandle(hOut);
         CloseHandle(serverToken);
         return GetLastError();
     }
 
     procInfo->serverToken = serverToken;
+    procInfo->hOut = hOut;
     return NO_ERROR;
 }
 
@@ -110,13 +136,13 @@ bool TryStopServer(const ProcInfo &procInfo) {
     };
 
     WCHAR cmd[MAX_PATH];
-    GetExePath(cmd, TEXT(MD_TERMINATOR_EXE_NAME));
+    JoinMdPath(cmd, TEXT(MD_TERMINATOR_EXE_NAME));
     wcscat_s(cmd, L" ");
     wcscat_s(cmd, std::to_wstring(procInfo.procInfo.dwProcessId).c_str());
         
     PROCESS_INFORMATION pi;
     if (!CreateProcessAsUser(procInfo.serverToken, nullptr, cmd, nullptr, nullptr,
-        TRUE, NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+        TRUE, CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS,
         nullptr, nullptr, &startup, &pi)) {
         return false;
     }
@@ -129,6 +155,7 @@ bool TryStopServer(const ProcInfo &procInfo) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
+    SetLastError(exit_code);
     return exit_code == 0;
 }
 
@@ -165,7 +192,7 @@ void WINAPI SvcMain(DWORD argc, LPTSTR* argv) {
                 if (result != WAIT_OBJECT_0 + 1) {
                     // Error occured or stop requested
                     if (!TryStopServer(procInfo)) {
-                        code = ERROR_PROCESS_ABORTED;
+                        code = GetLastError();
                         TerminateProcess(procInfo.procInfo.hProcess, code);
                     }
                 } else {
@@ -189,7 +216,7 @@ DWORD WINAPI SvcCtrlHandler(DWORD dwCtrl, DWORD eventType, LPVOID data, LPVOID c
 
         SetEvent(g_stopEvent);
         
-        //ReportSvcStatus(g_svcStatus.dwCurrentState, NO_ERROR, 0);
+        ReportSvcStatus(g_svcStatus.dwCurrentState, NO_ERROR, 0);
         break;
     case SERVICE_CONTROL_SESSIONCHANGE: {
         PWTSSESSION_NOTIFICATION notification = (PWTSSESSION_NOTIFICATION)data;

@@ -42,9 +42,15 @@
     Type& operator=(Type&&);
 
 namespace Monidroid {
+#ifdef _WIN32
+    using u8 = unsigned char;
+    using u16 = unsigned short;
+    using u32 = unsigned int;
+#else
     using u8 = uint8_t;
     using u16 = uint16_t;
     using u32 = uint32_t;
+#endif
 
     inline constexpr auto MAX_MONITORS_SUPPORTED = 16;
 }
