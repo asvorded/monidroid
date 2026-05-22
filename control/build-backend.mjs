@@ -18,9 +18,11 @@ const common = {
 };
 
 // Clear files in dist
-for (const entry of await fs.readdir(dist)) {
-  await fs.rm(resolve(dist, entry), {recursive: true});
-}
+try {
+	for (const entry of await fs.readdir(dist)) {
+	  await fs.rm(resolve(dist, entry), {recursive: true});
+	}
+} catch {}
 
 // Main process script
 await esbuild.build({

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(VCPKG_TARGET_TRIPLET x64-win-cpp20)
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(VCPKG_TARGET_TRIPLET x64-win-cpp20-release)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(VCPKG_TARGET_TRIPLET x64-win-cpp20)
+endif()
 
 project(monidroid)
 

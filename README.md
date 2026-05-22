@@ -88,14 +88,6 @@ Then, configure deployment in `MonidroidDriver` project properties:
 1. Tick "_Remove previous driver versions before deployment_"
 1. _Driver Installation Options -> Hardware ID Driver Update_ -> Set `Root\MonidroidDriver`
 
-### Making an installer on Linux
-
-``` bash
-# From project root
-chmod a+x ./deploy/deploy-linux.sh
-./deploy/deploy-linux.sh
-```
-
 ## 🛟 Troubleshooting
 
 ### Error during installation process (com.monidroid.driver): Execution failed (Unexpected exit code: 3): "dkms install /opt/monidroid/driver"

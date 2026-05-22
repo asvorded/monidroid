@@ -124,7 +124,7 @@ if(LINUX)
             monidroid-linux
     )
 elseif(WIN32)
-    set(SERVICE_TARGET mdsrv)
+    set(SERVICE_TARGET mdservice)
     set(TERMINATOR_TARGET mdterm)
 
     #
