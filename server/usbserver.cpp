@@ -4,6 +4,12 @@
 
 #include <boost/asio.hpp>
 #include <boost/dll.hpp>
+#ifdef _WIN32
+#include <initguid.h>
+#include <devguid.h>
+#include <devpkey.h>
+#include <SetupAPI.h>
+#endif
 
 #include "monidroid/protocol.h"
 #include "monidroid/logger.h"
@@ -112,6 +118,40 @@ bool UsbServer::isAdbDevice(libusb_device *dev, int& errc) {
     return result;
 }
 
+#ifdef _WIN32
+BOOL GetSerialNumberByVidPid(DWORD dwVid, DWORD dwPid, char* serial, const size_t bufSize) {
+    HDEVINFO hDevInfo;
+    SP_DEVINFO_DATA devInfoData;
+    BOOL result = FALSE;
+
+    hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_USB, 0, 0, DIGCF_PRESENT);
+    if (hDevInfo == INVALID_HANDLE_VALUE) return FALSE;
+
+    devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); i++) {
+        WCHAR hardwareId[128] { };
+        DEVPROPTYPE devPropType = 0;
+        if (SetupDiGetDevicePropertyW(hDevInfo, &devInfoData, &DEVPKEY_Device_Parent, &devPropType,
+            (PBYTE)hardwareId, sizeof(hardwareId), nullptr, 0)) {
+            DWORD vid, pid;
+            WCHAR wserial[128] { };
+            int r = swscanf(hardwareId, L"USB\\VID_%X&PID_%X\\%128s", &vid, &pid, wserial);
+            if (r == 3) {
+                if (vid == dwVid && pid == dwPid) {
+                    WideCharToMultiByte(CP_ACP, 0, wserial, -1, serial, bufSize, nullptr, nullptr);
+                    result = TRUE;
+                    break;
+                }
+            }
+        }
+    }
+
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+    return result;
+}
+#endif // _WIN32
+
+
 void UsbServer::handleAdbDevice(libusb_device *dev) {
     // Wait for authorization
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -120,6 +160,25 @@ void UsbServer::handleAdbDevice(libusb_device *dev) {
     int rc = libusb_open(dev, &handle);
     if (LIBUSB_SUCCESS != rc) {
         Monidroid::TaggedLog(TAG, "Cannot open Android device, error code {}", rc);
+#ifdef _WIN32
+        libusb_device_descriptor desc;
+        libusb_get_device_descriptor(dev, &desc);
+
+        char serialBuf[128] {};
+
+        if (GetSerialNumberByVidPid(desc.idVendor, desc.idProduct, serialBuf, sizeof(serialBuf))) {
+            // Wait for device become available to adb
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            std::string serial = serialBuf;
+            std::string serialToShow = m_hideSerials ? std::string(serial.size(), '*') : serial;
+            Monidroid::TaggedLog(TAG, "Found Android device {} from Setup API", serialToShow);
+
+            startListening(serial);
+        } else {
+            Monidroid::TaggedLog(TAG, "Setup API: Cannot open Android device");
+        }
+#endif
         return;
     }
     
@@ -135,9 +194,15 @@ void UsbServer::handleAdbDevice(libusb_device *dev) {
     std::string serialToShow = m_hideSerials ? std::string(serial.size(), '*') : serial;
     Monidroid::TaggedLog(TAG, "Android device detected: {}, serial number: {}", nameBuf, serialToShow);
 
-    startListening(serial);
-    
     libusb_close(handle);
+#ifdef _WIN32
+    // Wait for device become available to adb after libusb_close()
+    // USB Server works like casino because WinUSB does not support multiple concurrent applications
+    // https://github.com/libusb/libusb/wiki/Windows#known-restrictions
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+#endif
+
+    startListening(serial);
 }
 
 void UsbServer::startListening(const std::string &serial) {
@@ -149,11 +214,6 @@ void UsbServer::startListening(const std::string &serial) {
     });
     
     if (proc.wait() == 0) {
-        // std::string p("xxxxx");
-        // system::error_code ec;
-        // asio::read(proc, asio::buffer(p), ec);
-        // if (!ec) {
-        // int port = std::stoi(p);
         int port = Monidroid::PROTOCOL_PORT;
 
         auto ctx = std::shared_ptr<UsbClientContext>(new UsbClientContext {
@@ -165,7 +225,6 @@ void UsbServer::startListening(const std::string &serial) {
             std::lock_guard g(lock);
             m_clients.insert(ctx);
         }
-        // }
     }
 }
 

@@ -232,16 +232,27 @@ int main(int argc, char *argv[]) try {
 
     // Main loop, main thread is running until this context is stopped
     Monidroid::DefaultLog("Server ready");
-    std::jthread asioLoop([]() {
-        auto work = asio::make_work_guard(context);
-        context.run();
+
+    // No synchronization needed, exception_ptr check will always follow assignment
+    std::exception_ptr asioEx;
+    std::jthread asioLoop([&asioEx]() {
+        try {
+            auto work = asio::make_work_guard(context);
+            context.run();
+        } catch (...) {
+            asioEx = std::current_exception();
+            shutdown();
+        }
     });
     g_app->run();
     
-    // Shit library ;)
     // uWS::App must be destroyed in the thread it was constructed
     // and BEFORE going out of main() scope
     g_app.reset();
+
+    if (asioEx) {
+        std::rethrow_exception(asioEx);
+    }
 
     return 0;
 } catch (const std::exception& e) {

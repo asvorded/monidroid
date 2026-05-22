@@ -11,7 +11,12 @@ struct GlobalConfig {
     }
 };
 
-BOOST_GLOBAL_FIXTURE(GlobalConfig);
+/*
+    WARNING: These tests are not builable and runnable on Windows
+    due to USB drivers limitations (probably USB server/ADB data races)
+*/
+
+BOOST_TEST_GLOBAL_FIXTURE(GlobalConfig);
 
 boost::asio::io_context ctx;
 

@@ -78,6 +78,13 @@ target_link_libraries(${SERVER_TARGET}
         nlohmann_json::nlohmann_json
 )
 
+if(WIN32)
+target_link_libraries(${SERVER_TARGET}
+    PRIVATE
+        setupapi
+)
+endif()
+
 if(LINUX)
     #
     # TARGET: Linux library

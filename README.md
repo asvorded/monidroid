@@ -150,4 +150,19 @@ This is a GNOME bug. We will try to address it by applying another /dev/dri/card
 
 ### Cannot connect on Windows, "failed to connect to ... from ... after 5000ms"
 
-It is a standard Windows network layer behavior under debugger :). Disable debug by `bcdedit /debug off`, restart and try again.
+It is a standard Windows network layer behavior under debugger :). Disable debug by `bcdedit /debug off`, restart the system and try again.
+
+### Cannot connect through USB on Windows
+
+Please check server logs. If they contain at least one of these messages:
+- `[<timestamp>, USB] Setup API: Cannot open Android device`
+- `error: device <serial number> not found`
+
+then perform the following steps:
+1. Disconnect mobile device
+1. Run `adb kill-server` from terminal
+1. Connect mobile device again
+
+If this does not help, please open an issue.
+
+For more info, open this [source code line](https://github.com/asvorded/monidroid/blob/main/server/usbserver.cpp#L199).

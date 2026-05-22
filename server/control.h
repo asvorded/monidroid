@@ -29,6 +29,7 @@ public:
     void onEvent(std::string_view message, MessageHandler handler);
     void onRequest(std::string_view message, RequestHandler handler);
     void emit(std::string_view message, std::string_view objKey, const json &obj);
+    void close();
 
 private:
     static constexpr auto TOPIC_NAME = "main";
@@ -109,5 +110,11 @@ inline void MDApp::emit(std::string_view message, std::string_view objKey, const
 
     m_loop->defer([this, j]() {
         publish(TOPIC_NAME, j.dump(), OpCode::TEXT);
+    });
+}
+
+inline void MDApp::close() {
+    m_loop->defer([this]() {
+        App::close();
     });
 }
