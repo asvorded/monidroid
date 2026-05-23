@@ -81,5 +81,26 @@ function installCustomEvdi() {
 }
 
 function installIddCxDriver() {
+    // Install certificates
+    component.addElevatedOperation(
+        "Execute", [
+        "certutil", "/addstore", "/f", "AuthRoot", "@TargetDir@/MonidroidCert.cer",
+        "UNDOEXECUTE",
+        "certutil", "/delstore", "/f", "AuthRoot", "MonidroidCert.cer" ]
+    );
 
+    component.addElevatedOperation(
+        "Execute", [
+        "certutil", "/addstore", "/f", "TrustedPublisher", "@TargetDir@/MonidroidCert.cer",
+        "UNDOEXECUTE",
+        "certutil", "/delstore", "/f", "TrustedPublisher", "MonidroidCert.cer" ]
+    );
+
+    // Install driver
+    component.addElevatedOperation(
+        "Execute", [
+        "pnputil", "/add-driver", "@TargetDir@/driver/monidroiddriver.inf", "/install",
+        "UNDOEXECUTE",
+        "pnputil", "/delete-driver", "monidroiddriver.inf", "/uninstall" , "/force" ]
+    );
 }

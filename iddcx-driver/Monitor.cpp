@@ -164,7 +164,7 @@ void MonitorProcessor::Stop() {
         throw std::system_error(ERROR_TIMEOUT, std::system_category(), "Processor stop failure");
     }
 #else
-    DWORD result = WaitForSingleObject(m_thread, INFINITE);
+    WaitForSingleObject(m_thread, INFINITE);
 #endif
 }
 

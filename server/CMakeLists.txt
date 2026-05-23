@@ -185,15 +185,30 @@ endif()
 
 if(MD_DEPLOY)
 # Custom installation
-install(TARGETS ${SERVER_TARGET}
-    DESTINATION .
-)
+if(LINUX)
+    install(TARGETS ${SERVER_TARGET}
+        DESTINATION .
+    )
 
-install(IMPORTED_RUNTIME_ARTIFACTS
-    Boost::process
-    Boost::program_options
-    Boost::filesystem
-    libjpeg-turbo::turbojpeg
-    DESTINATION .
-)
+    install(IMPORTED_RUNTIME_ARTIFACTS
+        Boost::process
+        Boost::program_options
+        Boost::filesystem
+        libjpeg-turbo::turbojpeg
+        DESTINATION .
+    )
+elseif(WIN32)
+    #set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+    #include(InstallRequiredSystemLibraries)
+
+    install(TARGETS ${SERVER_TARGET} ${SERVICE_TARGET} ${TERMINATOR_TARGET}
+        DESTINATION .
+    )
+
+    install(DIRECTORY $<TARGET_FILE_DIR:${SERVER_TARGET}>/
+        DESTINATION .
+        FILES_MATCHING
+        PATTERN "*.dll"
+    )
+endif()
 endif()

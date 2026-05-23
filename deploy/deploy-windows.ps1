@@ -49,14 +49,26 @@ cmake -DCMAKE_BUILD_TYPE=Release -DMD_DEPLOY=TRUE -DCMAKE_TOOLCHAIN_FILE="$env:V
 cmake --build "$DEPLOY_DIR\build" --config Release --target monidroid-server
 cmake --build "$DEPLOY_DIR\build" --config Release --target mdservice
 cmake --build "$DEPLOY_DIR\build" --config Release --target mdterm
-cmake --install "$DEPLOY_DIR\build" --config Release 
+cmake --install "$DEPLOY_DIR\build" --config Release
 
 $adbPath = (Get-Command adb -ErrorAction Stop).Source
 Copy-Item $adbPath -Destination $SERVER_INSTALL_PREFIX
- 
+
+# Build the driver
+Write-Message "Building the driver..."
+
+& .\deploy\windows-makecert.ps1
+
+msbuild "-p:Configuration=Release;Platform=x64;OutputPath=x64\Release;SignMode=Off"
+New-Item -Type Directory -Path "$DRIVER_INSTALL_PREFIX\driver" -Force
+Copy-Item -Path "x64\Release\MonidroidDriver\*" -Destination "$DRIVER_INSTALL_PREFIX\driver" -Recurse -Force
+signtool sign /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 /v /f $DEPLOY_DIR\MonidroidPfx.pfx /p 1234 $DRIVER_INSTALL_PREFIX\driver\monidroiddriver.cat
+
+Copy-Item -Path $DEPLOY_DIR\MonidroidCert.cer -Destination $DRIVER_INSTALL_PREFIX
+
 # Build and copy control panel
 Write-Message "Building the control panel..."
- 
+
 Push-Location control
 try {
     npm install

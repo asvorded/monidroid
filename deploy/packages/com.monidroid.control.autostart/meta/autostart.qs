@@ -15,6 +15,12 @@ Component.prototype.createOperations = function() {
             "rm", "-f", "/etc/xdg/autostart/monidroid.desktop"
         );
     } else if (systemInfo.kernelType === "winnt") {
-        // component.addElevatedOperation("")
+        component.addElevatedOperation(
+            "Execute", [
+            "reg", "add", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Monidroid Control Panel",
+                "/t", "REG_SZ", "/d", "@TargetDir@/control/monidroid-control.exe".replace("/", "\\"), "/f",
+            "UNDOEXECUTE",
+            "reg", "delete", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Monidroid Control Panel", "/f" ]
+        )
     }
 }

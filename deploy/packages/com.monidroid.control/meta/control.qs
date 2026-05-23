@@ -8,13 +8,13 @@ Component.prototype.createOperations = function() {
 
     // Now install
     if (systemInfo.kernelType === "linux") {
-        installDesktopFiles();
+        installOnLinux();
     } else if (systemInfo.kernelType === "winnt") {
-        installShortcuts();
+        installWin32();
     }
 }
 
-function installDesktopFiles() {
+function installOnLinux() {
     component.addOperation("Replace", "@TargetDir@/monidroid.desktop", "${TARGET_DIR}", "@TargetDir@");
 
     component.addElevatedOperation(
@@ -28,6 +28,10 @@ function installDesktopFiles() {
     installer.setValue("RunProgramArguments", "--no-sandbox");
 }
 
-function installShortcuts() {
+function installWin32() {
+    component.addOperation(
+        "CreateShortcut", "@TargetDir@/control/monidroid-control.exe", "@StartMenuDir@/Monidroid Control Panel.lnk"
+    );
 
+    installer.setValue("RunProgram", "@TargetDir@/control/monidroid-control.exe");
 }

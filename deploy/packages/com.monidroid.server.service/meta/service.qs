@@ -39,5 +39,23 @@ function setupSystemd() {
 }
 
 function setupWindowsService() {
+    component.addElevatedOperation(
+        "Execute", [
+        "sc", "create", "MonidroidService", "binPath=", "@TargetDir@/mdservice.exe \"@TargetDir@/monidroid-service.log\"",
+            "start=", "auto", "DisplayName=", "Monidroid Service",
+        "UNDOEXECUTE",
+        "sc", "delete", "MonidroidService" ]
+    )
+    
+    component.addElevatedOperation(
+        "Execute",
+        "sc", "start", "MonidroidService",
+        "UNDOEXECUTE",
+        "sc", "stop", "MonidroidService"
+    )
 
+    component.addElevatedOperation(
+        "Execute",
+        "sc", "description", "MonidroidService", "Turn your mobile device into second monitor on any platform!"
+    )
 }

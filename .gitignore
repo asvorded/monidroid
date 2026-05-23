@@ -19,6 +19,7 @@ vcpkg_installed/
 
 # JavaScript out files
 dist/
+out/
 
 # npm
 node_modules/
@@ -28,3 +29,5 @@ package-lock.json
 deploy/packages/*/data/*
 deploy/monidroid-*-setup
 deploy/monidroid-*-setup.exe
+*.cer
+*.pfx
