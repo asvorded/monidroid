@@ -100,7 +100,7 @@ function installIddCxDriver() {
     component.addElevatedOperation(
         "Execute", [
         "pnputil", "/add-driver", "@TargetDir@/driver/monidroiddriver.inf", "/install",
-        "UNDOEXECUTE",
-        "pnputil", "/delete-driver", "monidroiddriver.inf", "/uninstall" , "/force" ]
+            "UNDOEXECUTE",
+            "powershell", "-Command", "& {Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -like '*monidroiddriver.inf' } | ForEach-Object { pnputil /delete-driver $_.Driver /uninstall /force }}" ]
     );
 }

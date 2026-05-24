@@ -18,7 +18,7 @@ Component.prototype.createOperations = function() {
         component.addElevatedOperation(
             "Execute", [
             "reg", "add", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Monidroid Control Panel",
-                "/t", "REG_SZ", "/d", "@TargetDir@/control/monidroid-control.exe".replace("/", "\\"), "/f",
+                "/t", "REG_SZ", "/d", (installer.value("TargetDir") + "/control/monidroid-control.exe").replace(/\//g, "\\"), "/f",
             "UNDOEXECUTE",
             "reg", "delete", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Monidroid Control Panel", "/f" ]
         )
