@@ -356,10 +356,32 @@ void monitorSendInput(const Monitor& self, int dx, int dy) {
 
 void monitorSendInput(const Monitor& self, u8 buttonFlags) {
     INPUT input { .type = INPUT_MOUSE };
-    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_L_BUTTON ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
-    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_R_BUTTON ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
-    input.mi.dwFlags |= buttonFlags & Monidroid::INPUT_M_BUTTON ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP;
+    input.mi.dwFlags |= ((buttonFlags & Monidroid::INPUT_L_BUTTON) ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP);
+    input.mi.dwFlags |= ((buttonFlags & Monidroid::INPUT_R_BUTTON) ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP);
+    input.mi.dwFlags |= ((buttonFlags & Monidroid::INPUT_M_BUTTON) ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP);
     UINT r = SendInput(1, &input, sizeof(INPUT));
+
+// Soon...
+#ifdef false
+    INPUT inputs[3] { {
+        .type = INPUT_MOUSE,
+        .mi {
+            .dwFlags |= ((buttonFlags & Monidroid::INPUT_L_BUTTON) ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP),
+        }
+    }, {
+        .type = INPUT_MOUSE,
+        .mi {
+            .dwFlags |= ((buttonFlags & Monidroid::INPUT_R_BUTTON) ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP),
+        }
+    }, {
+        .type = INPUT_MOUSE,
+        .mi {
+            .dwFlags |= ((buttonFlags & Monidroid::INPUT_M_BUTTON) ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP),
+        }
+    } };
+    UINT r = SendInput(3, &inputs, sizeof(INPUT));
+#endif
+
 #ifdef DEBUG
     if (r == 0) {
         Monidroid::TaggedLog(self->modelName, "SendInput() failed, error code {}", GetLastError());
