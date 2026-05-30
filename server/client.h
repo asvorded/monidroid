@@ -26,6 +26,12 @@ enum class ClientState {
 struct Client {
     static constexpr auto CLIENT_TAG = "Client";
 
+    struct TimeLogEntry {
+        double time_point;
+        double duration1;
+        double duration2;
+    };
+
 private:
     ClientState m_state = ClientState::New;
 

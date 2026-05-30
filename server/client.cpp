@@ -1,6 +1,7 @@
 #include "client.h"
 
 #include <cstring>
+#include <fstream>
 #include <array>
 #include <memory>
 
@@ -10,6 +11,8 @@
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"
 #include "monidroid/debug.h"
+
+using namespace std::chrono;
 
 Client::Client(ip::tcp::socket socket)
   : m_socket(std::move(socket)),
@@ -129,8 +132,11 @@ void Client::sendFrames() {
     // Diagnostics
     int frameFails = 0;
     int mapFails = 0;
+    milliseconds min = seconds(100), max = milliseconds(0);
+    auto startProgram = steady_clock::now();
 
     m_state = ClientState::Streaming;
+    std::vector<TimeLogEntry> logData(3'000);
 
     m_inputThread = std::jthread([this]() { receiveMain(); });
 
@@ -138,16 +144,29 @@ void Client::sendFrames() {
     unsigned int dataPixSize;
 
     while (m_state == ClientState::Streaming) {
+        auto t1_start = steady_clock::now();
         FrameStatus status = monitorRequestFrame(m_monitor);
+        auto t1_end = steady_clock::now();
+
         switch (status) {
         case FrameStatus::ModeChanged:
-        case FrameStatus::FrameReady:
+        case FrameStatus::FrameReady: {
             frameFails = 0;
 
+            double time_point = duration<double>(steady_clock::now() - startProgram).count();
+            double duration1 = duration<double, std::milli>(t1_end - t1_start).count();
+            
             monitorMapCurrent(m_monitor, info);
             if (info.data != nullptr) {
                 mapFails = 0;
+                
+                auto t2_start = steady_clock::now();
                 sendFullFrame(info);
+                auto t2_end = steady_clock::now();
+                
+                double duration2 = duration<double, std::milli>(t2_end - t2_start).count();
+                logData.push_back({ time_point, duration1, duration2 });
+
                 monitorUnmap(m_monitor);
             } else {
                 ++mapFails;
@@ -158,6 +177,7 @@ void Client::sendFrames() {
                 }
             }
             break;
+        }
         case FrameStatus::NoUpdates:
             frameFails = 0;
 
@@ -177,6 +197,24 @@ void Client::sendFrames() {
             }
             break;
         }
+    }
+
+    std::string fileName = m_modelName + (m_isUsb ? " USB" : " Wi-Fi") + ".csv";
+    std::ofstream file(fileName);
+    
+    if (file.is_open()) {
+        file << "time_point,request_time_ms,send_time_ms\r\n";
+
+        for (const auto& entry : logData) {
+            file << entry.time_point << ","
+                 << entry.duration1 << ","
+                 << entry.duration2 << "\r\n";
+        }
+        
+        file.close();
+        Monidroid::TaggedLog(m_modelName, "Timings have been written to \"{}\"", fileName);
+    } else {
+        Monidroid::TaggedLog(m_modelName, "An error had occured while writing timings to the file");
     }
 }
 
@@ -232,8 +270,8 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     unsigned char *jpegData = static_cast<unsigned char*>(tj3Alloc(1));
     size_t _jpegsize = 0;
     
-    tj3Set(tj, TJPARAM_QUALITY, 50);
-    tj3Set(tj, TJPARAM_SUBSAMP, TJSAMP_422);
+    tj3Set(tj, TJPARAM_QUALITY, 1);
+    tj3Set(tj, TJPARAM_SUBSAMP, TJSAMP_411);
     
     int code = tj3Compress8(tj,
         reinterpret_cast<const uint8_t*>(info.data),
