@@ -81,9 +81,30 @@ void Server::serverMainAsync() {
                 .address = clientSocket.remote_endpoint(),
                 .connectedAt = std::chrono::system_clock::now(),
                 .client = std::make_shared<Client>(std::move(clientSocket)),
+                .notified = false,
             });
+            
             ctx->thread = std::thread([this, ctx]() {
+                Monidroid::TaggedLog(TAG, "New client connected");
+
+                {
+                    std::lock_guard g(lock);
+                    m_clients.insert(ctx);
+                }
+
                 communicationMain(ctx);
+
+                {
+                    std::lock_guard g(lock);
+                    if (m_clients.erase(ctx)) {
+                        // No lock(), because we are in ctx->thread
+                        ctx->thread.detach();
+                    }
+                }
+
+                if (ctx->notified && m_notifier.onClientDisconnected) {
+                    m_notifier.onClientDisconnected(ctx);
+                }
             });
 
             serverMainAsync();
@@ -97,19 +118,12 @@ void Server::serverMainAsync() {
 }
 
 void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
-    Monidroid::TaggedLog(TAG, "New client connected");
-
-    {
-        std::lock_guard g(lock);
-        m_clients.insert(ctx);
-    }
-
-    auto client = ctx->client;
+    auto &client = *ctx->client;
     try {
         bool result = false;
 
         // 1. Identify device
-        result = client->identifyClient();
+        result = client.identifyClient();
         if (!result) {
             Monidroid::TaggedLog(TAG, "Disconnected from client due to identification error");
             return;
@@ -117,38 +131,26 @@ void Server::communicationMain(std::shared_ptr<ClientContext> ctx) {
         if (m_notifier.onClientConnected) {
             m_notifier.onClientConnected(ctx);
         }
-
-        // std::this_thread::sleep_for(std::chrono::seconds(10));
+        ctx->notified = true;
         
         // 2. Connect monitor
-        result = client->connectMonitor(m_adapter);
+        result = client.connectMonitor(m_adapter);
         if (!result) {
             Monidroid::TaggedLog(TAG, "Failed to connect monitor, send error and disconnect");
-            client->sendError(Monidroid::ErrorCode::MonitorConnectFail);
+            client.sendError(Monidroid::ErrorCode::MonitorConnectFail);
             return;
         }
         
         // 3. Send frames
-        client->sendFrames();
+        client.sendFrames();
         
         // 4. Disconnect monitor
-        client->disconnectMonitor();
+        client.disconnectMonitor();
 
-        Monidroid::TaggedLog(TAG, "Client {} disconnected", client->modelName());
+        Monidroid::TaggedLog(TAG, "Client {} disconnected", client.modelName());
     } catch (const std::runtime_error& e) {
-        Monidroid::TaggedLog(client->modelName(), "{}", e.what());
-        Monidroid::TaggedLog(client->modelName(), "Disconnecting due to critical error");
-        client->sendError(e.what());
-    }
-
-    {
-        std::lock_guard g(lock);
-        if (m_clients.erase(ctx)) {
-            // No lock(), because we are in ctx->thread
-            ctx->thread.detach();
-        }
-    }
-    if (m_notifier.onClientDisconnected) {
-        m_notifier.onClientDisconnected(ctx);
+        Monidroid::TaggedLog(client.modelName(), "{}", e.what());
+        Monidroid::TaggedLog(client.modelName(), "Disconnecting due to critical error");
+        client.sendError(e.what());
     }
 }

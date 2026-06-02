@@ -33,6 +33,15 @@ using Monitor = std::unique_ptr<MonitorContext, MonitorContextDeleter>;
 struct AdapterContext;
 using Adapter = std::shared_ptr<AdapterContext>;
 
+struct FrameMetadata {
+	static constexpr u8 FM_META_STAMP = 1 << 0;
+	static constexpr u8 FM_META_MODE = 1 << 1;
+
+	u8 flags;
+	u64 timestamp;
+	MonitorMode mode;
+};
+
 struct FrameMapInfo {
 	ColorType* data;
 	unsigned int width;
@@ -47,7 +56,7 @@ Adapter openAdapter();
 
 Monitor adapterConnectMonitor(const Adapter& adapter, const std::string& modelName, const MonitorMode& info);
 
-FrameStatus monitorRequestFrame(const Monitor& monitor);
+FrameStatus monitorRequestFrame(const Monitor& monitor, FrameMetadata *meta);
 
 MonitorMode monitorRequestMode(const Monitor& monitor, bool cached);
 
@@ -57,7 +66,7 @@ void monitorSendInput(const Monitor& self, u8 buttonFlags);
 
 void monitorSendInput(const Monitor& self, int scroll);
 
-void monitorMapCurrent(const Monitor& self, FrameMapInfo& mapInfo);
+void monitorMapCurrent(const Monitor& self, FrameMapInfo *mapInfo);
 void monitorUnmap(const Monitor& self);
 
 /// `monitor` will be reset after this operation

@@ -10,11 +10,13 @@ namespace Monidroid {
 
         inline constexpr auto PROTOCOL_WORD_LEN    = 5;
 
+        inline constexpr char BUF_STUB[PROTOCOL_WORD_LEN + 1] = "XXXXX";
+
         enum class ErrorCode : int {
             MessageEncoded            = 0,
 
             NotIdentified             = 1,
-            IncorrectMonitorOptions   = 2,
+            InvalidMonitorOptions     = 2,
             InvalidClient             = 3,
             
             DisconnectedByServer      = 10,
@@ -22,6 +24,7 @@ namespace Monidroid {
             TooManyFails              = 12,
 
             Unspecified               = 100,
+            NetworkError              = 101,
         };
 
         // ECHO
@@ -31,6 +34,7 @@ namespace Monidroid {
         
         // Client side
         inline constexpr char CL_WELCOME_WORD[PROTOCOL_WORD_LEN + 1]      = "CWLCM";
+        inline constexpr char CL_TIME_SYNC_WORD[PROTOCOL_WORD_LEN + 1]    = "CTSYN";
         inline constexpr char CL_USB_WELCOME_WORD[PROTOCOL_WORD_LEN + 1]  = "CUSBW";
 
         inline constexpr unsigned int ADB_IF_CLASS         = 0xFF4201;
@@ -56,6 +60,7 @@ namespace Monidroid {
         inline constexpr char SV_STREAM_WORD[PROTOCOL_WORD_LEN + 1]       = "SSTRM";
 
         inline constexpr char SV_FRAME_WORD[PROTOCOL_WORD_LEN + 1]        = "SFRME";
+        inline constexpr char SV_FRAME2_WORD[PROTOCOL_WORD_LEN + 1]       = "SFRM2";
 
         inline constexpr char SV_ERROR_WORD[PROTOCOL_WORD_LEN + 1]        = "SERRC";
         

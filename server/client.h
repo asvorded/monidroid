@@ -14,6 +14,7 @@
 
 #include "native.h"
 
+using namespace std::chrono;
 using namespace boost;
 using namespace boost::asio;
 using namespace boost::system;
@@ -38,6 +39,7 @@ private:
     ip::tcp::socket m_socket;
     std::vector<char> m_netBuffer;
     std::jthread m_inputThread;
+    steady_clock::time_point m_syncTime;
 
     MonitorMode m_preffered;
     std::string m_modelName;
@@ -45,7 +47,8 @@ private:
 
     Monitor m_monitor;
 
-    void sendFullFrame(const FrameMapInfo& info);
+    bool sync();
+    void sendFullFrame(const FrameMapInfo& info, const FrameMetadata& meta);
     void sendMonitorOff();
 
     void receiveMain();

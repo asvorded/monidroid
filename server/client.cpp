@@ -12,8 +12,6 @@
 #include "monidroid/edid.h"
 #include "monidroid/debug.h"
 
-using namespace std::chrono;
-
 Client::Client(ip::tcp::socket socket)
   : m_socket(std::move(socket)),
     m_preffered()
@@ -30,8 +28,7 @@ const std::string &Client::modelName() const {
     return m_modelName;
 }
 
-ClientState Client::state() const
-{
+ClientState Client::state() const {
     return m_state;
 }
 
@@ -113,6 +110,26 @@ bool Client::identifyClient() {
         }
     }
 
+    return sync();
+}
+
+bool Client::sync() {
+    std::string syncWord(Monidroid::BUF_STUB);
+    error_code ec;
+
+    asio::read(m_socket, asio::buffer(syncWord), ec);
+    // Set stamp right after read() returns
+    m_syncTime = steady_clock::now();
+    
+    if (ec) {
+        Monidroid::TaggedLog(m_modelName, "Time sync failed, socket error \"{}\"", ec.message());
+        return false;
+    } else if (syncWord != Monidroid::CL_TIME_SYNC_WORD) {
+        Monidroid::TaggedLog(m_modelName, "Time sync failed, {} word mismatch ", Monidroid::CL_TIME_SYNC_WORD);
+        sendError(ErrorCode::InvalidClient);
+        return false;
+    }
+
     return true;
 }
 
@@ -133,19 +150,18 @@ void Client::sendFrames() {
     int frameFails = 0;
     int mapFails = 0;
     milliseconds min = seconds(100), max = milliseconds(0);
-    auto startProgram = steady_clock::now();
 
     m_state = ClientState::Streaming;
     std::vector<TimeLogEntry> logData(3'000);
 
     m_inputThread = std::jthread([this]() { receiveMain(); });
 
-    FrameMapInfo info;
-    unsigned int dataPixSize;
+    FrameMetadata meta { };
+    FrameMapInfo info { };
 
     while (m_state == ClientState::Streaming) {
         auto t1_start = steady_clock::now();
-        FrameStatus status = monitorRequestFrame(m_monitor);
+        FrameStatus status = monitorRequestFrame(m_monitor, &meta);
         auto t1_end = steady_clock::now();
 
         switch (status) {
@@ -153,15 +169,15 @@ void Client::sendFrames() {
         case FrameStatus::FrameReady: {
             frameFails = 0;
 
-            double time_point = duration<double>(steady_clock::now() - startProgram).count();
+            double time_point = duration<double>(steady_clock::now() - m_syncTime).count();
             double duration1 = duration<double, std::milli>(t1_end - t1_start).count();
             
-            monitorMapCurrent(m_monitor, info);
+            monitorMapCurrent(m_monitor, &info);
             if (info.data != nullptr) {
                 mapFails = 0;
                 
                 auto t2_start = steady_clock::now();
-                sendFullFrame(info);
+                sendFullFrame(info, meta);
                 auto t2_end = steady_clock::now();
                 
                 double duration2 = duration<double, std::milli>(t2_end - t2_start).count();
@@ -265,7 +281,7 @@ void Client::handleInput() {
     }
 }
 
-void Client::sendFullFrame(const FrameMapInfo& info) {
+void Client::sendFullFrame(const FrameMapInfo& info, const FrameMetadata& meta) {
     tjhandle tj = tj3Init(TJINIT_COMPRESS);
     unsigned char *jpegData = static_cast<unsigned char*>(tj3Alloc(1));
     size_t _jpegsize = 0;
@@ -288,8 +304,16 @@ void Client::sendFullFrame(const FrameMapInfo& info) {
     
     int jpegSize = _jpegsize;
     
-    std::array<const_buffer, 3> buffers {
-        asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
+    // std::array<const_buffer, 3> buffers {
+    //     asio::buffer(std::string_view(Monidroid::SV_FRAME_WORD)),
+    //     asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
+    //     asio::buffer(jpegData, jpegSize),
+    // };
+
+    u64 frameTime = meta.timestamp - duration_cast<nanoseconds>(m_syncTime.time_since_epoch()).count();
+    std::array<const_buffer, 4> buffers = {
+        asio::buffer(std::string_view(Monidroid::SV_FRAME2_WORD)),
+        asio::buffer((void*)&frameTime, sizeof(frameTime)),
         asio::buffer((void*)&jpegSize, sizeof(jpegSize)),
         asio::buffer(jpegData, jpegSize),
     };

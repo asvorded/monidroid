@@ -218,7 +218,7 @@ Monitor adapterConnectMonitor(const Adapter &self, const std::string &modelName,
     return monitor;
 }
 
-FrameStatus monitorRequestFrame(const Monitor &self) {
+FrameStatus monitorRequestFrame(const Monitor &self, FrameMetadata *meta) {
     bool ready = evdi_request_update(self->handle, self->frameBufferInfo.id);
     if (ready) {
         evdi_grab_pixels(self->handle, self->rects.begin(), &self->rectsCount);
@@ -259,7 +259,10 @@ FrameStatus monitorRequestFrame(const Monitor &self) {
         } else {
         }
     }
-
+    
+    meta->timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()
+    ).count();
     return FrameStatus::FrameReady;
 }
 
@@ -288,11 +291,11 @@ void monitorSendInput(const Monitor &self, int scroll) {
     libevdev_uinput_write_event(self->uinput, EV_SYN, SYN_REPORT, 0);
 }
 
-void monitorMapCurrent(const Monitor &self, FrameMapInfo &mapInfo) {
+void monitorMapCurrent(const Monitor &self, FrameMapInfo *mapInfo) {
     if (!self->enabled || self->rectsCount == 0) {
-        mapInfo = { .data = nullptr };
+        *mapInfo = { .data = nullptr };
     } else {
-        mapInfo = {
+        *mapInfo = {
             .data = (ColorType*)self->frameBufferInfo.buffer,
             .width = (u32)self->frameBufferInfo.width,
             .height = (u32)self->frameBufferInfo.height,

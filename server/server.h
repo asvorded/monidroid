@@ -19,7 +19,9 @@ struct ClientContext {
     ip::tcp::endpoint address;
     std::chrono::system_clock::time_point connectedAt;
     std::shared_ptr<Client> client;
+
     std::thread thread;
+    bool notified;
 };
 
 struct Notifier {

@@ -31,3 +31,6 @@ deploy/monidroid-*-setup
 deploy/monidroid-*-setup.exe
 *.cer
 *.pfx
+
+# Benchmark files
+*.csv
