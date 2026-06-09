@@ -22,6 +22,7 @@ namespace Monidroid {
             DisconnectedByServer      = 10,
             MonitorConnectFail        = 11,
             TooManyFails              = 12,
+            SessionError              = 13,
 
             Unspecified               = 100,
             NetworkError              = 101,
@@ -61,6 +62,7 @@ namespace Monidroid {
 
         inline constexpr char SV_FRAME_WORD[PROTOCOL_WORD_LEN + 1]        = "SFRME";
         inline constexpr char SV_FRAME2_WORD[PROTOCOL_WORD_LEN + 1]       = "SFRM2";
+        inline constexpr char SV_STREAM_FRAME_WORD[PROTOCOL_WORD_LEN + 1] = "SSFRM";
 
         inline constexpr char SV_ERROR_WORD[PROTOCOL_WORD_LEN + 1]        = "SERRC";
         

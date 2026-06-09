@@ -38,7 +38,7 @@ struct FrameMetadata {
 	static constexpr u8 FM_META_MODE = 1 << 1;
 
 	u8 flags;
-	u64 timestamp;
+	u64 timestampNs;
 	MonitorMode mode;
 };
 

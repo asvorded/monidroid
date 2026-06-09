@@ -260,7 +260,7 @@ FrameStatus monitorRequestFrame(const Monitor &self, FrameMetadata *meta) {
         }
     }
     
-    meta->timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    meta->timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()
     ).count();
     return FrameStatus::FrameReady;

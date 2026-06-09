@@ -49,6 +49,15 @@ pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
     gstreamer-rtsp-server-1.0
 )
 
+# x264
+if(LINUX)
+pkg_check_modules(x264 REQUIRED IMPORTED_TARGET
+    x264
+)
+elseif(WIN32)
+# TODO
+endif()
+
 # libusb
 pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
     libusb-1.0
@@ -69,7 +78,7 @@ target_link_libraries(${SERVER_TARGET}
     PRIVATE
         monidroid-common
         libjpeg-turbo::turbojpeg
-        PkgConfig::GStreamer
+        PkgConfig::x264
         PkgConfig::libusb
         Boost::process
         Boost::filesystem
