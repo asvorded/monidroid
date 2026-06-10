@@ -38,18 +38,9 @@ endif()
 
 find_package(libjpeg-turbo REQUIRED)
 
-# GStreamer
-if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH $ENV{GSTREAMER_ROOT_X86_64})
-endif()
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GStreamer REQUIRED IMPORTED_TARGET
-    gstreamer-1.0
-    gstreamer-rtsp-server-1.0
-)
 
 # libusb
+find_package(PkgConfig REQUIRED)
 pkg_check_modules(libusb REQUIRED IMPORTED_TARGET
     libusb-1.0
 )
@@ -69,7 +60,6 @@ target_link_libraries(${SERVER_TARGET}
     PRIVATE
         monidroid-common
         libjpeg-turbo::turbojpeg
-        PkgConfig::GStreamer
         PkgConfig::libusb
         Boost::process
         Boost::filesystem

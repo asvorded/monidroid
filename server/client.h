@@ -6,8 +6,6 @@
 #include <string_view>
 
 #include <boost/asio.hpp>
-#include <gst/gst.h>
-#include <gst/rtsp-server/rtsp-server.h>
 
 #include "monidroid.h"
 #include "monidroid/protocol.h"

@@ -5,7 +5,6 @@
 #include <memory>
 
 #include <turbojpeg.h>
-#include <gst/video/gstvideometa.h>
 
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"

@@ -5,7 +5,6 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
-#include <gst/gst.h>
 #include <nlohmann/json.hpp>
 
 #include "monidroid.h"
@@ -183,8 +182,6 @@ int main(int argc, char *argv[]) try {
     }
     g_hideSerials = !vm.contains("show-serials");
     const bool throwIfUsbFailed = vm.contains("force-usb");
-
-    gst_init(&argc, &argv);
 
     // Health checks
     checkElevation();
