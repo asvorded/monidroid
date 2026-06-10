@@ -7,6 +7,7 @@ cmake_policy(SET CMP0167 NEW)
 #
 set(SERVER_TARGET monidroid-server)
 set(SERVER_VERSION 0.1.0)
+option(Boost_USE_STATIC_LIBS "" TRUE)
 
 add_executable(${SERVER_TARGET})
 target_sources(${SERVER_TARGET} PRIVATE
@@ -200,9 +201,6 @@ if(LINUX)
     )
 
     install(IMPORTED_RUNTIME_ARTIFACTS
-        Boost::process
-        Boost::program_options
-        Boost::filesystem
         libjpeg-turbo::turbojpeg
         DESTINATION .
     )

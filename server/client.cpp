@@ -8,6 +8,7 @@
 
 #include "monidroid/logger.h"
 #include "monidroid/edid.h"
+#include "monidroid/debug.h"
 
 Client::Client(ip::tcp::socket socket)
   : m_socket(std::move(socket)),
@@ -226,7 +227,7 @@ void Client::sendFrames() {
         auto t1_start = steady_clock::now();
         FrameStatus status = monitorRequestFrame(m_monitor, &meta);
         auto t1_end = steady_clock::now();
-
+        
         switch (status) {
         case FrameStatus::ModeChanged: {
             MonitorMode mode = monitorRequestMode(m_monitor, false);
@@ -364,7 +365,7 @@ void Client::sendStreamFrame(const FrameMapInfo &info, const FrameMetadata &meta
     x264_nal_t *nal;
     x264_picture_t picOut;
     int dataSize = x264_encoder_encode(m_codec, &nal, &numNals, &m_pic, &picOut);
-    if (dataSize < 0) {
+    if (dataSize <= 0) {
         Monidroid::TaggedLog(m_modelName, "Frame encoding failed");
         return;
     }
