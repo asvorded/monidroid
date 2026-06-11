@@ -159,7 +159,8 @@ bool Client::initEncoder(const MonitorMode &mode) {
     param.i_timebase_num = 1;
     param.i_timebase_den = 1'000'000; // microseconds
     // TODO: size or start codes?
-    param.b_annexb = 1;
+    // put 4 byte size
+    param.b_annexb = 0;
     param.i_bframe = 0;
 
     x264_param_apply_profile(&param, "high");
@@ -362,11 +363,13 @@ void Client::sendStreamFrame(const FrameMapInfo &info, const FrameMetadata &meta
     m_pic.i_pts = frameTime / 1000; // ns -> μs
 
     int numNals = 0;
-    x264_nal_t *nal;
+    x264_nal_t *nals;
     x264_picture_t picOut;
-    int dataSize = x264_encoder_encode(m_codec, &nal, &numNals, &m_pic, &picOut);
-    if (dataSize <= 0) {
+    int dataSize = x264_encoder_encode(m_codec, &nals, &numNals, &m_pic, &picOut);
+    if (dataSize < 0) {
         Monidroid::TaggedLog(m_modelName, "Frame encoding failed");
+        return;
+    } else if (dataSize == 0) {
         return;
     }
 
@@ -374,25 +377,25 @@ void Client::sendStreamFrame(const FrameMapInfo &info, const FrameMetadata &meta
         asio::buffer(std::string_view(Monidroid::SV_STREAM_FRAME_WORD)),
         asio::buffer((void*)&frameTime, sizeof(frameTime)),
         asio::buffer((void*)&dataSize, sizeof(dataSize)),
-        asio::buffer(nal->p_payload, dataSize),
+        asio::buffer(nals->p_payload, dataSize),
     };
 
-    // error_code ec;
-    // asio::write(m_socket, buffers, ec);
-    // if (ec) {
-    //     std::cout << ec.message() << "\n";
-    //     m_state = ClientState::ConnectionClosed;
-    // }
-
-    // TODO: remove after testing
-    std::ofstream outFile("frames.h264", std::ios_base::app);
-    if (outFile.is_open()) {
-        outFile.write(reinterpret_cast<char*>(nal->p_payload), dataSize);
-        outFile.close();
-    } else {
-        sendError(ErrorCode::Unspecified);
-        // TODO: sendError() sets Error state
+    error_code ec;
+    asio::write(m_socket, buffers, ec);
+    if (ec) {
+        std::cout << ec.message() << "\n";
+        m_state = ClientState::ConnectionClosed;
     }
+
+    // // TODO: remove after testing
+    // std::ofstream outFile("frames.h264", std::ios_base::app);
+    // if (outFile.is_open()) {
+    //     outFile.write(reinterpret_cast<char*>(nals->p_payload), dataSize);
+    //     outFile.close();
+    // } else {
+    //     sendError(ErrorCode::Unspecified);
+    //     // TODO: sendError() sets Error state
+    // }
 }
 
 void Client::sendMonitorOff() {
