@@ -25,6 +25,12 @@ const DevicePage = () => {
 
   const [forceActive, setForceActive] = useState(true);
 
+  // TODO: stub!
+  useEffect(() => {
+    startTimeRef.current = device.connectedAt;
+    setUptime(Date.now() - device.connectedAt);
+  }, [device.id]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setUptime(Date.now() - startTimeRef.current);

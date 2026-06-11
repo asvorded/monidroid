@@ -80,13 +80,13 @@ const BaseApp = ({onShutdownClick} : {
   useEffect(() => {
     service.on(ControlIpc. ClientConnected, (client, alreadyPresent) => {
       if (!alreadyPresent) {
-        setClients([...clients, client]);
+        setClients(prev => [...prev, client]);
       }
     });
 
     service.on(ControlIpc.ClientDisconnected, (id, alreadyRemoved) => {
       if (!alreadyRemoved) {
-        setClients(clients.filter(c => c.id != id));
+        setClients(prev => prev.filter(c => c.id != id));
       }
     });
 
