@@ -1,0 +1,9 @@
+post_install() {
+    systemctl --system enable monidroid
+    systemctl --system start monidroid
+}
+
+pre_remove() {
+    systemctl --system stop monidroid
+    systemctl --system disable monidroid
+}

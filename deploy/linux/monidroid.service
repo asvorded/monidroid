@@ -2,7 +2,7 @@
 Description=Monidroid server
 
 [Service]
-ExecStart=${TARGET_DIR}/monidroid-server
+ExecStart=/usr/bin/monidroid-server
 RestartKillSignal=SIGINT
 KillSignal=SIGINT
 Restart=on-failure

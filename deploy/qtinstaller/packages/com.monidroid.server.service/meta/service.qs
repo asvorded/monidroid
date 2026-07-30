@@ -16,7 +16,8 @@ Component.prototype.createOperations = function() {
 }
 
 function setupSystemd() {
-    component.addOperation("Replace", "@TargetDir@/monidroid.service", "${TARGET_DIR}", "@TargetDir@");
+    // component.addOperation("Replace", "@TargetDir@/monidroid.service", "${TARGET_DIR}", "@TargetDir@");
+    component.addOperation("Replace", "@TargetDir@/monidroid.service", "/usr/bin", "@TargetDir@");
 
     component.addElevatedOperation(
         "Execute",

@@ -1,0 +1,33 @@
+pkgname=monidroid-server
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Turn your mobile device into second monitor on any platform!'
+arch=('x86_64')
+url=https://github.com/asvorded/monidroid
+depends=('libusb' 'libevdev' 'libjpeg-turbo>=3.0.0')
+makedepends=('cmake' 'pkgconf' 'boost' 'nlohmann-json' 'libusb' 'libevdev' 'libjpeg-turbo>=3.0.0')
+optdepends=('android-tools: USB support')
+install=md.install
+source=()
+
+build() {
+    if [ ! $ROOT ]; then
+        echo "The project root must be specified."
+        exit 1;
+    fi
+
+    local cmake_options=(
+        -S $ROOT
+        -B $ROOT/build
+        -DCMAKE_BUILD_TYPE=Release
+    )
+
+    cmake "${cmake_options[@]}"
+    cmake --build $ROOT/build
+}
+
+package() {
+    cmake --install $ROOT/build --prefix $pkgdir/usr
+
+    install -Dm 755 $ROOT/deploy/linux/monidroid.service $pkgdir/usr/lib/systemd/system/monidroid.service
+}

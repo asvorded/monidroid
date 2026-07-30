@@ -201,4 +201,7 @@ elseif(WIN32)
         PATTERN "*.dll"
     )
 endif()
+else()
+    include(GNUInstallDirs)
+    install(TARGETS ${SERVER_TARGET})
 endif()
