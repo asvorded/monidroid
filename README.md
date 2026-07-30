@@ -24,14 +24,16 @@ All needed dependencies can be found in `server/CMakeLists.txt`. Here are the co
 Ubuntu:
 ``` bash
 sudo apt update && sudo apt -y upgrade
-sudo apt install cmake build-essential pkg-config libgstreamer1.0-dev libgstrtspserver-1.0-dev libboost-dev nlohmann-json3-dev libusb-1.0-0-dev libevdev-dev
+sudo apt install cmake build-essential pkg-config libboost-dev nlohmann-json3-dev libusb-1.0-0-dev libevdev-dev
 
 # Ubuntu version of libjpeg-turbo is too old
 curl -LO https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.3/libjpeg-turbo-official_3.1.3_amd64.deb && sudo apt install ./libjpeg-turbo-official_3.1.3_amd64.deb
 ```
 
 Arch-based:
-TODO
+``` bash
+sudo pacman -Syu base-devel cmake pkgconf boost nlohmann-json libusb libevdev libjpeg-turbo
+```
 
 Fedora:
 TODO
@@ -133,6 +135,12 @@ sudo pacman base-devel linux-headers # Choose proper package (e.g. linux-lts-hea
 ```
 
 Then reboot your PC and retry installation.
+
+### Computer is not visible in the "Detected devices" section
+
+Check firewall settings.
+
+TODO: Add ufw rules on Linux
 
 ### Monitor is not visible in GNOME settings
 
